@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080b16">
+  <meta name="description" content="Catálogo de juegos para jugar directamente en el navegador.">
+  <title>Arcadia — Catálogo de juegos</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --fondo: #080b16;
+      --panel: rgba(19, 24, 43, .76);
+      --texto: #f4f5ff;
+      --suave: #a2abc5;
+      --borde: rgba(174, 188, 255, .13);
+      --acento: #8b7cff;
+      --menta: #62e7cb;
+    }
+    * { box-sizing: border-box; }
+    html { min-height: 100%; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--texto);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(ellipse at 12% 0%, rgba(102, 83, 214, .2), transparent 36rem),
+        radial-gradient(ellipse at 92% 20%, rgba(47, 178, 160, .1), transparent 30rem),
+        var(--fondo);
+    }
+    a { color: inherit; text-decoration: none; }
+    .shell { width: min(1120px, calc(100% - 48px)); margin: 0 auto; }
+    header { height: 82px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,.07); }
+    .brand { display: inline-flex; align-items: center; gap: 11px; font-size: 1.05rem; font-weight: 800; letter-spacing: .04em; }
+    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; color: #fff; background: linear-gradient(140deg, #a58bff, #6453d7); box-shadow: 0 5px 22px #7562d744; }
+    .nav-label { color: var(--suave); font-size: .84rem; }
+    main { padding: 82px 0 60px; }
+    .eyebrow { display: flex; align-items: center; gap: 9px; color: var(--menta); font-size: .72rem; font-weight: 750; letter-spacing: .19em; text-transform: uppercase; }
+    .eyebrow::before { content: ""; width: 20px; height: 1px; background: currentColor; }
+    h1 { max-width: 720px; margin: 18px 0 14px; font-size: clamp(2.8rem, 7vw, 5.7rem); line-height: .99; letter-spacing: -.065em; }
+    h1 span { color: #a99aff; }
+    .intro { max-width: 550px; margin: 0; color: var(--suave); font-size: 1.05rem; line-height: 1.7; }
+    .catalog { margin-top: 58px; }
+    .catalog-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 17px; }
+    h2 { margin: 0; font-size: 1.22rem; letter-spacing: -.02em; }
+    .count { color: #929bb5; font-size: .8rem; }
+    .game-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+    .game-card {
+      overflow: hidden; border: 1px solid var(--borde); border-radius: 20px;
+      background: linear-gradient(145deg, rgba(24, 30, 53, .95), rgba(13, 17, 32, .9));
+      box-shadow: 0 18px 50px #00000022; transition: transform .2s ease, border-color .2s ease;
+    }
+    .game-card:hover { transform: translateY(-4px); border-color: #a99aff66; }
+    .game-art { min-height: 155px; display: grid; place-items: center; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 65%, #7c65ff66, transparent 38%), linear-gradient(135deg, #171d3b, #101629); }
+    .game-art::before, .game-art::after { content: ""; position: absolute; border: 1px solid #ffffff14; border-radius: 50%; width: 190px; height: 190px; }
+    .game-art::after { width: 130px; height: 130px; }
+    .game-symbol { z-index: 1; font-size: 3.3rem; filter: drop-shadow(0 8px 18px #9b8cff88); }
+    .game-info { padding: 18px 19px 20px; }
+    .game-info h3 { margin: 0 0 8px; font-size: 1.04rem; }
+    .game-info p { margin: 0; color: var(--suave); font-size: .84rem; }
+    .play-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; color: #c3baff; font-size: .82rem; font-weight: 700; }
+    .empty {
+      min-height: 290px;
+      display: grid;
+      place-items: center;
+      padding: 36px 20px;
+      text-align: center;
+      border: 1px solid var(--borde);
+      border-radius: 22px;
+      background: linear-gradient(140deg, rgba(22, 28, 49, .87), rgba(13, 17, 32, .72));
+      box-shadow: 0 24px 80px #00000026, inset 0 1px 0 #ffffff08;
+    }
+    .empty-content { max-width: 410px; }
+    .empty-icon { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 18px; border: 1px solid #a99aff35; border-radius: 18px; color: #b9adff; background: #8b7cff12; }
+    .empty-icon svg { width: 27px; height: 27px; }
+    .empty h3 { margin: 0 0 8px; font-size: 1.15rem; }
+    .empty p { margin: 0; color: var(--suave); font-size: .92rem; line-height: 1.6; }
+    footer { padding: 24px 0 32px; border-top: 1px solid rgba(255,255,255,.07); color: #79829d; font-size: .78rem; }
+    @media (max-width: 600px) {
+      .shell { width: min(100% - 32px, 1120px); }
+      header { height: 70px; }
+      main { padding-top: 66px; }
+      .catalog { margin-top: 44px; }
+      .empty { min-height: 260px; }
+      .nav-label { font-size: .76rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <a class="brand" href="#inicio" aria-label="Arcadia, inicio">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <span>ARCADIA</span>
+      </a>
+      <span class="nav-label">Juegos para navegador</span>
+    </header>
+
+    <main id="inicio">
+      <div class="eyebrow">Tu rincón de juego</div>
+      <h1>Una colección<br>por <span>descubrir.</span></h1>
+      <p class="intro">Juegos sencillos, partidas rápidas y diversión directa desde el navegador.</p>
+
+      <section class="catalog" aria-labelledby="catalog-title">
+        <div class="catalog-head">
+          <h2 id="catalog-title">Todos los juegos</h2>
+          <span class="count" id="game-count">Buscando juegos…</span>
+        </div>
+        <div class="game-grid" id="game-grid" aria-live="polite"></div>
+        <div class="empty" id="empty-state" hidden>
+          <div class="empty-content">
+            <div class="empty-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6.5 9h11a4.5 4.5 0 0 1 4.2 6.1l-1 2.5a2.5 2.5 0 0 1-4.2.8L14.8 16H9.2l-1.7 2.4a2.5 2.5 0 0 1-4.2-.8l-1-2.5A4.5 4.5 0 0 1 6.5 9Z"/>
+                <path d="M7 12v4m-2-2h4m8-1h.01M18 15h.01"/>
+              </svg>
+            </div>
+            <h3>Próximamente, nuevos juegos</h3>
+            <p>Añade archivos HTML a la carpeta <strong>Aptos</strong> y aparecerán aquí automáticamente.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>Hecho para jugar · Arcadia</footer>
+  </div>
+  <script>
+    const grid = document.querySelector('#game-grid');
+    const count = document.querySelector('#game-count');
+    const empty = document.querySelector('#empty-state');
+    const titleFromFile = (file) => file.replace(/\.html?$/i, '').replace(/[-_]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+
+    async function loadGames() {
+      try {
+        const response = await fetch('juegos.json', { cache: 'no-store' });
+        if (!response.ok) throw new Error('No se pudo leer juegos.json');
+        const games = await response.json();
+        return games.filter(game => game && /^[-\w .()]+\.html?$/i.test(game.file));
+      } catch {
+        // En local, el servidor puede detectar los HTML de Aptos sin tocar el manifiesto.
+        const response = await fetch('Aptos/', { cache: 'no-store' });
+        if (!response.ok) throw new Error('No se pudo leer Aptos');
+        const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+        return [...doc.querySelectorAll('a[href]')]
+          .map(link => decodeURIComponent(link.getAttribute('href')))
+          .filter(file => /^[-\w .()]+\.html?$/i.test(file))
+          .map(file => ({ file }));
+      }
+    }
+
+    loadGames()
+      .then(games => {
+        games.sort((a, b) => a.file.localeCompare(b.file, 'es'));
+        const files = games.map(game => game.file);
+        count.textContent = `${files.length} ${files.length === 1 ? 'juego' : 'juegos'}`;
+        empty.hidden = files.length !== 0;
+        for (const game of games) {
+          const file = game.file;
+          const name = game.name || titleFromFile(file);
+          const card = document.createElement('article');
+          card.className = 'game-card';
+          const art = document.createElement('div');
+          art.className = 'game-art';
+          art.setAttribute('aria-hidden', 'true');
+          const symbol = document.createElement('span');
+          symbol.className = 'game-symbol';
+          symbol.textContent = '✦';
+          art.append(symbol);
+          const info = document.createElement('div');
+          info.className = 'game-info';
+          const heading = document.createElement('h3');
+          heading.textContent = name;
+          const description = document.createElement('p');
+          description.textContent = game.description || 'Juego para navegador';
+          const play = document.createElement('a');
+          play.className = 'play-link';
+          play.href = `Aptos/${encodeURIComponent(file)}`;
+          play.textContent = 'Jugar ahora →';
+          info.append(heading, description, play);
+          card.append(art, info);
+          grid.append(card);
+        }
+      })
+      .catch(() => {
+        count.textContent = 'No se pudo cargar';
+        empty.hidden = false;
+        empty.querySelector('h3').textContent = 'Abre Arcadia con el servidor local';
+        empty.querySelector('p').textContent = 'Para detectar automáticamente los archivos de Aptos, inicia el servidor incluido y abre Arcadia desde él.';
+      });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bola Infinita · AI Playground</title>
+<style>
+  /* ==========================================================
+     ESTILO GENERAL
+     ========================================================== */
+  :root{
+    --neon:#4ff0d2;          /* verde agua neón */
+    --violeta:#7a5cff;       /* violeta */
+    --peligro:#ff4d6d;       /* rojo peligro */
+    --panel:rgba(14,18,40,.72);
+    --borde:rgba(150,175,255,.22);
+    --texto:#eaf0ff;
+    --texto-suave:#b9c6f2;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    height:100%; margin:0; padding:0;
+    overflow:hidden;
+    background:#05070f;
+    font-family:"Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    color:var(--texto);
+    -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:none;               /* evita scroll/bounce en móvil */
+  }
+  body{
+    background:
+      radial-gradient(900px 600px at 15% 10%, rgba(122,92,255,.25), transparent 60%),
+      radial-gradient(800px 700px at 85% 90%, rgba(79,240,210,.18), transparent 60%),
+      #05070f;
+  }
+  #juego{ position:fixed; inset:0; overflow:hidden; }
+  canvas{ display:block; width:100%; height:100%; touch-action:none; }
+
+  /* ==========================================================
+     HUD (marcador superior)
+     ========================================================== */
+  #hud{
+    position:absolute; left:0; right:0; top:0; z-index:5;
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:10px; padding:12px; flex-wrap:wrap;
+    pointer-events:none;                 /* no tapa el canvas */
+  }
+  .cajas{ display:flex; gap:8px; flex-wrap:wrap; }
+  .caja{
+    background:var(--panel); border:1px solid var(--borde);
+    border-radius:14px; padding:7px 14px; min-width:86px;
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+    display:flex; flex-direction:column; align-items:center; line-height:1.15;
+  }
+  .etiqueta{ font-size:clamp(.55rem,1.9vw,.7rem); letter-spacing:.16em; color:var(--texto-suave); text-transform:uppercase; }
+  .valor{
+    font-size:clamp(1.05rem,3.6vw,1.5rem); font-weight:900;
+    background:linear-gradient(90deg,var(--neon),var(--violeta));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    font-variant-numeric:tabular-nums;
+  }
+  /* Barra de tamaño (peligro de explotar / desinflarse) */
+  .barraCaja{
+    flex:1 1 220px; max-width:430px; min-width:150px;
+    background:var(--panel); border:1px solid var(--borde);
+    border-radius:14px; padding:8px 12px;
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .barraTexto{
+    display:flex; justify-content:space-between; font-size:clamp(.55rem,1.9vw,.7rem);
+    letter-spacing:.14em; text-transform:uppercase; color:var(--texto-suave); margin-bottom:5px;
+  }
+  .barra{ height:10px; border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden; box-shadow:inset 0 2px 6px rgba(0,0,0,.55); }
+  #barraRelleno{
+    height:100%; width:20%; border-radius:99px;
+    background:linear-gradient(90deg,#4ff0d2,#8affb0);
+    box-shadow:0 0 14px rgba(79,240,210,.6);
+    transition:width .1s linear, background .35s ease, box-shadow .35s ease;
+  }
+  #barraRelleno.aviso{ background:linear-gradient(90deg,#ffd166,#ff9f1c); box-shadow:0 0 16px rgba(255,159,28,.7); }
+  #barraRelleno.critico{ background:linear-gradient(90deg,#ff9f1c,#ff4d6d); box-shadow:0 0 20px rgba(255,77,109,.85); animation:latido .55s infinite alternate; }
+  @keyframes latido{ from{ filter:brightness(1); } to{ filter:brightness(1.5); } }
+
+  .botones{ display:flex; gap:8px; }
+
+  /* ==========================================================
+     BOTONES
+     ========================================================== */
+  .mini{
+    pointer-events:auto; cursor:pointer;
+    border:1px solid var(--borde); border-radius:12px;
+    background:rgba(20,26,55,.8); color:var(--texto);
+    font:inherit; font-size:clamp(.68rem,2.2vw,.82rem); font-weight:700; letter-spacing:.06em;
+    padding:9px 14px; transition:transform .15s, border-color .15s, background .15s;
+  }
+  .mini:hover{ transform:translateY(-2px); border-color:var(--neon); background:rgba(30,40,80,.9); }
+  .mini:active{ transform:translateY(1px); }
+
+  .boton{
+    pointer-events:auto; cursor:pointer; display:inline-block;
+    border:1px solid rgba(255,255,255,.35); border-radius:16px;
+    background:linear-gradient(160deg, var(--violeta), var(--neon));
+    color:#06121c; font:inherit; font-weight:900; letter-spacing:.08em;
+    font-size:clamp(1rem,3.6vw,1.25rem);
+    padding:15px 40px; text-transform:uppercase;
+    box-shadow:0 12px 34px rgba(122,92,255,.4), inset 0 1px 0 rgba(255,255,255,.55);
+    transition:transform .15s, box-shadow .15s, filter .15s;
+  }
+  .boton:hover{ transform:translateY(-3px) scale(1.03); box-shadow:0 18px 42px rgba(79,240,210,.45); filter:brightness(1.06); }
+  .boton:active{ transform:translateY(1px) scale(.98); }
+  .boton.secundario{
+    background:rgba(18,24,50,.85); color:var(--texto); border-color:var(--borde);
+    box-shadow:0 10px 26px rgba(0,0,0,.4);
+    font-size:clamp(.85rem,2.8vw,1rem); padding:12px 26px;
+  }
+  .boton.secundario:hover{ border-color:var(--neon); box-shadow:0 12px 30px rgba(79,240,210,.25); }
+
+  /* ==========================================================
+     CAPAS (menú, pausa, fin)
+     ========================================================== */
+  .overlay{
+    position:absolute; inset:0; z-index:10;
+    display:flex; align-items:center; justify-content:center; padding:18px;
+    overflow:auto;
+    background:radial-gradient(circle at 50% 25%, rgba(34,28,90,.72), rgba(4,6,16,.94));
+    backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px);
+    opacity:1; visibility:visible; transition:opacity .3s ease, visibility .3s;
+  }
+  .overlay.oculto{ opacity:0; visibility:hidden; pointer-events:none; }
+
+  .panel{
+    width:min(660px,94vw); text-align:center;
+    background:var(--panel); border:1px solid var(--borde); border-radius:24px;
+    padding:clamp(18px,4vw,34px);
+    box-shadow:0 34px 70px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.07);
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  }
+  .titulo{
+    margin:0 0 6px; font-weight:900; letter-spacing:.03em;
+    font-size:clamp(2.3rem,9vw,4.4rem); line-height:1;
+    background:linear-gradient(90deg,#4ff0d2,#7a5cff,#ff7ac1,#4ff0d2);
+    background-size:300% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:arcoiris 9s linear infinite;
+    filter:drop-shadow(0 6px 26px rgba(122,92,255,.55));
+  }
+  @keyframes arcoiris{ from{ background-position:0% 0; } to{ background-position:300% 0; } }
+  .subtitulo{ margin:0 0 14px; color:var(--texto-suave); font-size:clamp(.82rem,2.6vw,1rem); letter-spacing:.14em; text-transform:uppercase; }
+
+  .objetivo{
+    margin:0 auto 16px; max-width:52ch; color:#dbe4ff;
+    font-size:clamp(.86rem,2.7vw,1.02rem); line-height:1.5;
+  }
+  .objetivo b{ color:var(--neon); }
+
+  .controles{
+    display:grid; gap:8px; margin:0 0 18px; text-align:left;
+    grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  }
+  .fila{
+    display:flex; gap:10px; align-items:center;
+    background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.07);
+    border-radius:12px; padding:9px 12px; font-size:clamp(.76rem,2.4vw,.9rem); color:#c9d4ff;
+  }
+  kbd{
+    background:#0c1230; border:1px solid rgba(160,180,255,.35); border-bottom-width:3px;
+    border-radius:7px; padding:3px 9px; font-family:inherit; font-size:.85em;
+    color:#9ff3e4; font-weight:800; white-space:nowrap;
+  }
+
+  .estadisticas{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:6px 0 18px; }
+  .stat{
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.09);
+    border-radius:14px; padding:10px 18px; min-width:96px;
+  }
+  .stat span{ display:block; font-size:.68rem; letter-spacing:.16em; text-transform:uppercase; color:var(--texto-suave); }
+  .stat strong{ font-size:clamp(1.2rem,4.4vw,1.7rem); font-weight:900; color:#fff; font-variant-numeric:tabular-nums; }
+
+  .motivo{ margin:0 0 14px; color:#ff9fb3; font-size:clamp(.86rem,2.8vw,1.05rem); font-weight:700; }
+  .record-nuevo{
+    display:inline-block; margin-bottom:14px; padding:8px 18px; border-radius:99px;
+    background:linear-gradient(90deg,#ffd166,#ff7ac1); color:#21130a; font-weight:900;
+    letter-spacing:.12em; text-transform:uppercase; font-size:clamp(.72rem,2.4vw,.88rem);
+    box-shadow:0 0 26px rgba(255,209,102,.55); animation:latido .7s infinite alternate;
+  }
+  .record-nuevo.oculto{ display:none; }
+  .acciones{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .pie{ margin:16px 0 0; font-size:.72rem; color:#8f9ccf; letter-spacing:.08em; }
+
+  @media (max-width:560px){
+    #hud{ padding:8px; gap:6px; }
+    .caja{ min-width:66px; padding:5px 9px; }
+    .barraCaja{ order:3; flex-basis:100%; max-width:none; }
+  }
+</style>
+</head>
+<body>
+<div id="juego">
+  <!-- Lienzo donde se dibuja toda la acción -->
+  <canvas id="lienzo"></canvas>
+
+  <!-- Marcador: puntuación, nivel, récord, barra de tamaño y botones -->
+  <div id="hud">
+    <div class="cajas">
+      <div class="caja"><span class="etiqueta">Puntos</span><span class="valor" id="puntos">0</span></div>
+      <div class="caja"><span class="etiqueta">Nivel</span><span class="valor" id="nivel">1</span></div>
+      <div class="caja"><span class="etiqueta">Récord</span><span class="valor" id="record">0</span></div>
+    </div>
+    <div class="barraCaja">
+      <div class="barraTexto"><span>Tamaño</span><span id="pct">0%</span></div>
+      <div class="barra"><div id="barraRelleno"></div></div>
+    </div>
+    <div class="botones">
+      <button class="mini" id="btnPausa" type="button">Pausa</button>
+      <button class="mini" id="btnSilencio" type="button" aria-label="Activar o silenciar el sonido">🔊</button>
+    </div>
+  </div>
+
+  <!-- Pantalla de inicio -->
+  <div class="overlay" id="overlayInicio">
+    <div class="panel">
+      <h1 class="titulo">BOLA INFINITA</h1>
+      <p class="subtitulo">Rebota · Crece · Sobrevive</p>
+      <p class="objetivo">
+        La bola <b>rebota sola</b> y se va <b>desinflando</b>. Pulsa <b>ESPACIO</b> (o toca la pantalla)
+        para inflarla y sumar puntos… pero ojo: si crece <b>demasiado explota</b>, y si se queda
+        <b>sin aire se apaga</b>. A partir del <b>nivel 3</b> aparecen <b>espinas</b>: esquiva con la bola
+        pequeña, o <b>aplasta</b> las espinas cuando la bola triplica su tamaño.
+      </p>
+      <div class="controles">
+        <div class="fila"><kbd>Espacio</kbd><kbd>Clic</kbd><kbd>Toque</kbd> Inflar la bola</div>
+        <div class="fila"><kbd>← ↑ → ↓</kbd><kbd>W A S D</kbd> Dirigir la bola</div>
+        <div class="fila"><kbd>Arrastrar</kbd> Dirigir hacia el puntero (ratón o dedo)</div>
+        <div class="fila"><kbd>P</kbd><kbd>Esc</kbd> Pausa · <kbd>M</kbd> Sonido · <kbd>R</kbd> Reintentar</div>
+      </div>
+      <div class="estadisticas">
+        <div class="stat"><span>Récord</span><strong id="inicioRecord">0</strong></div>
+      </div>
+      <div class="acciones"><button class="boton" id="btnJugar" type="button">Jugar</button></div>
+      <p class="pie">Sonido sintetizado con WebAudio · Sin recursos externos</p>
+    </div>
+  </div>
+
+  <!-- Pausa -->
+  <div class="overlay oculto" id="overlayPausa">
+    <div class="panel">
+      <h1 class="titulo" style="font-size:clamp(1.9rem,7vw,3.2rem)">PAUSA</h1>
+      <p class="objetivo">La bola espera. Respira… y vuelve a rebotar.</p>
+      <div class="acciones">
+        <button class="boton" id="btnReanudar" type="button">Reanudar</button>
+        <button class="boton secundario" id="btnPausaMenu" type="button">Menú</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fin de partida -->
+  <div class="overlay oculto" id="overlayFin">
+    <div class="panel">
+      <h1 class="titulo" style="font-size:clamp(1.9rem,7vw,3.2rem)">FIN</h1>
+      <p class="motivo" id="finMotivo">—</p>
+      <div class="record-nuevo oculto" id="nuevoRecord">¡Nuevo récord!</div>
+      <div class="estadisticas">
+        <div class="stat"><span>Puntos</span><strong id="finPuntos">0</strong></div>
+        <div class="stat"><span>Nivel</span><strong id="finNivel">1</strong></div>
+        <div class="stat"><span>Récord</span><strong id="finRecord">0</strong></div>
+      </div>
+      <div class="acciones">
+        <button class="boton" id="btnReintentar" type="button">Reintentar</button>
+        <button class="boton secundario" id="btnFinMenu" type="button">Menú</button>
+      </div>
+      <p class="pie">Truco: mantén la barra de tamaño entre el 30% y el 75%.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ==========================================================
+   BOLA INFINITA · juego completo en un solo archivo
+   Todo el código (CSS + JS) está embebido: sin CDN,
+   sin imágenes remotas y sin fuentes externas.
+   ========================================================== */
+
+/* ----------------------------------------------------------
+   1. UTILIDADES
+   ---------------------------------------------------------- */
+const $ = (id) => document.getElementById(id);
+const limitar = (v, min, max) => Math.max(min, Math.min(max, v));
+const aleatorio = (min, max) => min + Math.random() * (max - min);
+
+/* ----------------------------------------------------------
+   2. LIENZO
+   ---------------------------------------------------------- */
+const canvas = $('lienzo');
+const ctx = canvas.getContext('2d');
+let ancho = 0, alto = 0;   // tamaño del área de juego en píxeles CSS
+
+/* Referencias al HUD (se usan cada frame) */
+const elPuntos = $('puntos'), elNivel = $('nivel'), elRecord = $('record');
+const elPct = $('pct'), elBarra = $('barraRelleno'), elBtnPausa = $('btnPausa');
+const elBtnSilencio = $('btnSilencio');
+
+/* ----------------------------------------------------------
+   3. AJUSTES DEL JUEGO (los tamaños se recalculan al redimensionar)
+   ---------------------------------------------------------- */
+const cfg = {
+  crecer: 6,          // px de radio que gana cada pulsación
+  desinflarBase: 4.5, // px/segundo que pierde sola la bola
+  desinflarNivel: .45,// extra de desinflado por nivel
+  velBase: 285,       // velocidad inicial (px/s)
+  velPorNivel: 26,    // velocidad extra por nivel
+  metaBase: 150,      // puntos para pasar del nivel 1 al 2
+  metaPorNivel: 75,   // puntos extra por nivel
+  giroTeclado: 4.2,   // rad/s de giro con flechas / WASD
+  giroPuntero: 6.5,   // rad/s de giro arrastrando ratón o dedo
+  rMin: 12, rMax: 85, rInicio: 26, // se recalculan con el tamaño de pantalla
+};
+const metaNivel = () => cfg.metaBase + (estado.nivel - 1) * cfg.metaPorNivel;
+const velocidadActual = () => cfg.velBase + (estado.nivel - 1) * cfg.velPorNivel;
+
+/* ----------------------------------------------------------
+   4. ESTADO GENERAL DE LA PARTIDA
+   ---------------------------------------------------------- */
+/* Récord y silencio se guardan en localStorage (con try por si está bloqueado) */
+let mejorGuardado = 0, silencioGuardado = false;
+try {
+  mejorGuardado = Number(localStorage.getItem('bolaInfinitaMejor') || 0);
+  silencioGuardado = localStorage.getItem('bolaInfinitaSilencio') === '1';
+} catch (e) { /* almacenamiento no disponible: seguimos sin record */ }
+
+const estado = {
+  pantalla: 'inicio',   // 'inicio' | 'jugando' | 'pausa' | 'fin'
+  puntos: 0,
+  puntosNivel: 0,
+  nivel: 1,
+  mejor: mejorGuardado,
+  silencio: silencioGuardado,
+  tiempo: 0,            // reloj global para las animaciones
+  cooldown: 0,          // enfriado entre pulsaciones de "crecer"
+  invulnerable: 0,      // inmunidad (segundos) tras chocar con una espina
+  sacudida: 0,          // fuerza restante de sacudida de cámara
+  flash: 0,             // destello de pantalla (0..1)
+  flashColor: '255,255,255',
+  aviso: '',            // texto grande centrado (niveles, etc.)
+  avisoTiempo: 0,
+  avisoDur: 1.5,
+  motivoFin: '',
+  nuevoRecord: false,
+  partida: 0,           // contador para invalidar temporizadores antiguos
+};
+
+/* ----------------------------------------------------------
+   5. ENTIDADES
+   ---------------------------------------------------------- */
+const bola = { x: 0, y: 0, vx: 0, vy: 0, r: cfg.rInicio, viva: true };
+let espinas = [];       // obstáculos móviles (nivel 3 en adelante)
+let particulas = [];    // sistema de partículas
+let flotantes = [];     // textos flotantes ("+24", "¡AY!")
+let estela = [];        // estela luminosa de la bola
+const teclas = {};      // teclas mantenidas pulsadas
+const puntero = { x: 0, y: 0, arrastrando: false, manteniendo: false };
+
+/* ----------------------------------------------------------
+   6. SONIDO (WebAudio sintetizado, sin archivos)
+   ---------------------------------------------------------- */
+let audioCtx = null;
+function asegurarAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { audioCtx = null; }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+}
+/* Emite un tono con ataque y caída (freq inicial → freq final) */
+function tono(f0, f1, dur, tipo, vol) {
+  if (estado.silencio || !audioCtx) return;
+  try {
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gan = audioCtx.createGain();
+    osc.type = tipo;
+    osc.frequency.setValueAtTime(Math.max(20, f0), t);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(20, f1 || f0), t + dur);
+    gan.gain.setValueAtTime(0.0001, t);
+    gan.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    gan.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(gan); gan.connect(audioCtx.destination);
+    osc.start(t); osc.stop(t + dur + 0.05);
+  } catch (e) { /* audio no disponible */ }
+}
+const sfx = {
+  rebote(r)   { tono(150 + r * 3.2, 110 + r * 2.2, 0.09, 'triangle', 0.20); },
+  crecer()    { tono(390, 840, 0.13, 'sine', 0.16); },
+  aplastar()  { tono(170, 55, 0.18, 'square', 0.18); },
+  dano()      { tono(300, 60, 0.30, 'sawtooth', 0.22); },
+  nivel()     { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tono(f, f, 0.16, 'triangle', 0.15), i * 85)); },
+  fin()       { [523, 392, 294, 196].forEach((f, i) => setTimeout(() => tono(f, f * 0.6, 0.30, 'sawtooth', 0.17), i * 140)); },
+  ui()        { tono(660, 660, 0.07, 'sine', 0.14); },
+};
+
+/* ----------------------------------------------------------
+   7. COLOR Y PARTÍCULAS
+   ---------------------------------------------------------- */
+function mezclar(a, b, k) {
+  return [Math.round(a[0] + (b[0] - a[0]) * k),
+          Math.round(a[1] + (b[1] - a[1]) * k),
+          Math.round(a[2] + (b[2] - a[2]) * k)];
+}
+function rgb(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a === undefined ? 1 : a) + ')'; }
+function oscurecer(c, k) { return [Math.round(c[0] * k), Math.round(c[1] * k), Math.round(c[2] * k)]; }
+/* 0 = tamaño seguro (verde agua) → 1 = tamaño crítico (rojo) */
+function colorRiesgo(t) {
+  t = limitar(t, 0, 1);
+  const verde = [79, 240, 210], ambar = [255, 196, 64], rojo = [255, 77, 109];
+  return t < 0.5 ? mezclar(verde, ambar, t / 0.5) : mezclar(ambar, rojo, (t - 0.5) / 0.5);
+}
+/* Proporción de "peligro" según el tamaño actual de la bola */
+function riesgo() { return limitar((bola.r - cfg.rMin) / Math.max(1, cfg.rMax - cfg.rMin), 0, 1); }
+
+function nuevaParticula(x, y, vx, vy, color, tam, dur) {
+  particulas.push({ x, y, vx, vy, color, tam, vida: 1, dur });
+  if (particulas.length > 460) particulas.splice(0, particulas.length - 460);
+}
+/* Explosión de partículas en un punto */
+function burst(x, y, n, color, vmin, vmax, tam) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = aleatorio(vmin, vmax);
+    nuevaParticula(x, y, Math.cos(a) * v, Math.sin(a) * v,
+      color, aleatorio(tam * .5, tam), aleatorio(.35, .85));
+  }
+}
+/* Anillo de partículas al crecer */
+function anillo(x, y, r, n, color) {
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    nuevaParticula(x + Math.cos(a) * r, y + Math.sin(a) * r,
+      Math.cos(a) * 140, Math.sin(a) * 140, color, 3.4, .5);
+  }
+}
+/* Texto flotante ("+24") */
+function flotante(x, y, txt, color) {
+  flotantes.push({ x, y, txt, color, vida: 1, dur: .9 });
+  if (flotantes.length > 24) flotantes.shift();
+}
+
+/* Mensaje grande en pantalla */
+function mostrarAviso(txt, dur) {
+  estado.aviso = txt;
+  estado.avisoDur = dur || 1.5;
+  estado.avisoTiempo = estado.avisoDur;
+}
+
+/* ----------------------------------------------------------
+   8. REDIMENSIÓN (móvil, escritorio, rotación…)
+   ---------------------------------------------------------- */
+function redimensionar() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = canvas.getBoundingClientRect();
+  ancho = Math.max(1, rect.width);
+  alto = Math.max(1, rect.height);
+  canvas.width = Math.round(ancho * dpr);
+  canvas.height = Math.round(alto * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // dibujamos siempre en píxeles CSS
+
+  /* Tamaños relativos al lado menor de la pantalla */
+  const lado = Math.min(ancho, alto);
+  cfg.rMin = limitar(lado * 0.028, 10, 20);
+  cfg.rMax = limitar(lado * 0.12, 50, 115);
+  cfg.crecer = limitar(cfg.rMax * 0.06, 5, 9);
+  cfg.rInicio = Math.min(cfg.rMax * 0.42, Math.max(cfg.rMin * 1.8, 24));
+
+  /* Mantener la bola y las espinas dentro de los nuevos límites */
+  bola.x = limitar(bola.x, bola.r, Math.max(bola.r, ancho - bola.r));
+  bola.y = limitar(bola.y, bola.r, Math.max(bola.r, alto - bola.r));
+  for (const e of espinas) {
+    e.x = limitar(e.x, e.r, Math.max(e.r, ancho - e.r));
+    e.y = limitar(e.y, e.r, Math.max(e.r, alto - e.r));
+  }
+}
+
+/* ----------------------------------------------------------
+   9. FLUJO DE LA PARTIDA (inicio, pausa, fin, reinicio)
+   ---------------------------------------------------------- */
+function refrescarHUD() {
+  elPuntos.textContent = estado.puntos;
+  elNivel.textContent = estado.nivel;
+  elRecord.textContent = estado.mejor;
+  const t = riesgo();
+  elPct.textContent = Math.round(t * 100) + '%';
+  elBarra.style.width = (t * 100).toFixed(1) + '%';
+  /* La barra cambia de color a medida que la bola se acerca al tamaño máximo */
+  elBarra.className = t > 0.78 ? 'critico' : (t > 0.55 ? 'aviso' : '');
+  elBtnSilencio.textContent = estado.silencio ? '🔇' : '🔊';
+  elBtnPausa.textContent = estado.pantalla === 'pausa' ? 'Seguir' : 'Pausa';
+}
+
+function mostrarOverlay(id) { $(id).classList.remove('oculto'); }
+function ocultarOverlay(id) { $(id).classList.add('oculto'); }
+function ocultarTodos() { ['overlayInicio', 'overlayPausa', 'overlayFin'].forEach(ocultarOverlay); }
+
+/* Reinicia todas las variables para una partida nueva */
+function reiniciarPartida() {
+  estado.puntos = 0; estado.puntosNivel = 0; estado.nivel = 1;
+  estado.cooldown = 0; estado.invulnerable = 0; estado.sacudida = 0;
+  estado.flash = 0; estado.aviso = ''; estado.avisoTiempo = 0;
+  estado.motivoFin = ''; estado.nuevoRecord = false;
+  bola.x = ancho / 2; bola.y = alto / 2;
+  bola.r = cfg.rInicio;
+  const a = aleatorio(-Math.PI, Math.PI);
+  bola.vx = Math.cos(a) * velocidadActual();
+  bola.vy = Math.sin(a) * velocidadActual();
+  bola.viva = true;
+  espinas = []; estela = []; particulas = []; flotantes = [];
+  mostrarAviso('¡NIVEL 1!', 1.2);
+}
+
+function empezar() {
+  asegurarAudio();
+  ocultarTodos();
+  reiniciarPartida();
+  estado.pantalla = 'jugando';
+  estado.partida++;
+  refrescarHUD();
+  sfx.ui();
+}
+
+/* Modo demostración del menú: la bola late y rebota sin peligro */
+function iniciarDemo() {
+  estado.partida++;
+  ocultarTodos(); mostrarOverlay('overlayInicio');
+  estado.pantalla = 'inicio';
+  estado.aviso = ''; estado.avisoTiempo = 0;
+  $('inicioRecord').textContent = estado.mejor;
+  bola.x = ancho / 2; bola.y = alto / 2;
+  bola.r = cfg.rInicio;
+  const a = aleatorio(-Math.PI * 0.85, -Math.PI * 0.15); // sale hacia arriba
+  bola.vx = Math.cos(a) * cfg.velBase; bola.vy = Math.sin(a) * cfg.velBase;
+  bola.viva = true;
+  espinas = []; estela = []; flotantes = [];
+  refrescarHUD();
+}
+
+function terminar(motivo) {
+  if (estado.pantalla !== 'jugando') return;
+  estado.pantalla = 'fin';
+  estado.motivoFin = motivo;
+  bola.viva = false;
+  estado.sacudida = 26;
+  estado.flash = 0.9; estado.flashColor = '255,80,110';
+  burst(bola.x, bola.y, 90, '#ff6b9d', 100, 540, 8);
+  anillo(bola.x, bola.y, bola.r, 26, '#ffd166');
+  sfx.fin();
+
+  if (estado.puntos > estado.mejor) {
+    estado.mejor = estado.puntos;
+    estado.nuevoRecord = true;
+    try { localStorage.setItem('bolaInfinitaMejor', String(estado.mejor)); } catch (e) {}
+  }
+  /* Rellenamos el panel de fin (aunque se muestre más tarde) */
+  $('finMotivo').textContent = motivo;
+  $('finPuntos').textContent = estado.puntos;
+  $('finNivel').textContent = estado.nivel;
+  $('finRecord').textContent = estado.mejor;
+  $('nuevoRecord').classList.toggle('oculto', !estado.nuevoRecord);
+  refrescarHUD();
+
+  /* Esperamos a que se vea la explosión antes de tapar la acción */
+  const pid = estado.partida;
+  setTimeout(() => {
+    if (estado.pantalla === 'fin' && estado.partida === pid) mostrarOverlay('overlayFin');
+  }, 850);
+}
+
+function alternarPausa() {
+  if (estado.pantalla === 'jugando') {
+    estado.pantalla = 'pausa';
+    mostrarOverlay('overlayPausa');
+    sfx.ui();
+  } else if (estado.pantalla === 'pausa') {
+    estado.pantalla = 'jugando';
+    ocultarOverlay('overlayPausa');
+    asegurarAudio();
+    sfx.ui();
+  }
+  refrescarHUD();
+}
+
+function alternarSilencio() {
+  estado.silencio = !estado.silencio;
+  try { localStorage.setItem('bolaInfinitaSilencio', estado.silencio ? '1' : '0'); } catch (e) {}
+  if (!estado.silencio) { asegurarAudio(); sfx.ui(); }
+  refrescarHUD();
+}
+
+/* ----------------------------------------------------------
+   10. LÓGICA DE JUEGO
+   ---------------------------------------------------------- */
+/* Intenta inflar la bola (ESPACIO / clic / toque) */
+function intentarCrecer() {
+  if (estado.pantalla !== 'jugando' || !bola.viva || estado.cooldown > 0) return;
+  asegurarAudio();
+  estado.cooldown = 0.13;
+  /* Si ya no cabe más tamaño… ¡explota! */
+  if (bola.r + cfg.crecer > cfg.rMax + 0.001) {
+    burst(bola.x, bola.y, 60, '#ffd166', 120, 520, 7);
+    terminar('¡La bola explotó por crecer demasiado!');
+    return;
+  }
+  bola.r = Math.min(cfg.rMax, bola.r + cfg.crecer);
+  anillo(bola.x, bola.y, bola.r, 14, '#7dffe6');
+  estado.flash = Math.min(0.3, estado.flash + 0.12);
+  estado.flashColor = '160,255,235';
+  sumarPuntos(5);
+  sfx.crecer();
+}
+
+function sumarPuntos(n) {
+  estado.puntos += n;
+  estado.puntosNivel += n;
+  if (estado.puntosNivel >= metaNivel()) {
+    estado.puntosNivel -= metaNivel();
+    subirNivel();
+  }
+}
+
+function subirNivel() {
+  estado.nivel++;
+  estado.puntos += 25 * estado.nivel; // bonificación (solo al total)
+  fijarVelocidad();
+  mostrarAviso('¡NIVEL ' + estado.nivel + '!', 1.5);
+  estado.flash = 0.5; estado.flashColor = '120,255,220';
+  /* Las espinas aparecen a partir del nivel 3 (máximo 6) */
+  const deseadas = espinasDeseadas();
+  while (espinas.length < deseadas) espinas.push(crearEspina());
+  sfx.nivel();
+}
+
+const espinasDeseadas = () => limitar(estado.nivel - 2, 0, 6);
+
+/* Normaliza la velocidad de la bola al valor del nivel actual */
+function fijarVelocidad() {
+  const v = velocidadActual();
+  const m = Math.hypot(bola.vx, bola.vy) || 1;
+  bola.vx = bola.vx / m * v;
+  bola.vy = bola.vy / m * v;
+}
+
+/* Rota la dirección de movimiento de la bola (giro relativo) */
+function rotarVelocidad(giro) {
+  const c = Math.cos(giro), s = Math.sin(giro);
+  const vx = bola.vx * c - bola.vy * s;
+  const vy = bola.vx * s + bola.vy * c;
+  bola.vx = vx; bola.vy = vy;
+}
+/* Gira la bola para que apunte hacia un punto (limitado por dt) */
+function girarHacia(px, py, dt, rapidez) {
+  const angObj = Math.atan2(py - bola.y, px - bola.x);
+  const ang = Math.atan2(bola.vy, bola.vx);
+  let dif = angObj - ang;
+  while (dif > Math.PI) dif -= Math.PI * 2;
+  while (dif < -Math.PI) dif += Math.PI * 2;
+  rotarVelocidad(limitar(dif, -rapidez * dt, rapidez * dt));
+}
+
+/* --------- Espinas (obstáculos) --------- */
+function reposicionarEspina(e) {
+  let x = 0, y = 0, intentos = 0;
+  do {
+    x = aleatorio(40, Math.max(41, ancho - 40));
+    y = aleatorio(60, Math.max(61, alto - 40));
+    intentos++;
+  } while (Math.hypot(x - bola.x, y - bola.y) < 150 && intentos < 40);
+  e.x = x; e.y = y;
+}
+function crearEspina() {
+  const e = { x: 0, y: 0, r: aleatorio(13, 19), vx: 0, vy: 0, ang: 0, giro: aleatorio(-2.2, 2.2), activa: true, reaparicion: 0 };
+  reposicionarEspina(e);
+  const a = aleatorio(0, Math.PI * 2);
+  const v = aleatorio(55, 85) + estado.nivel * 6;
+  e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v;
+  return e;
+}
+function moverEspinas(dt) {
+  for (const e of espinas) {
+    if (!e.activa) {
+      e.reaparicion -= dt;
+      if (e.reaparicion <= 0) { reposicionarEspina(e); e.activa = true; }
+      continue;
+    }
+    e.ang += e.giro * dt;
+    e.x += e.vx * dt; e.y += e.vy * dt;
+    /* Rebote contra los muros */
+    if (e.x - e.r <= 0) { e.x = e.r; e.vx = Math.abs(e.vx); }
+    if (e.x + e.r >= ancho) { e.x = ancho - e.r; e.vx = -Math.abs(e.vx); }
+    if (e.y - e.r <= 0) { e.y = e.r; e.vy = Math.abs(e.vy); }
+    if (e.y + e.r >= alto) { e.y = alto - e.r; e.vy = -Math.abs(e.vy); }
+  }
+}
+function comprobarEspinas() {
+  if (!bola.viva) return;
+  for (const e of espinas) {
+    if (!e.activa) continue;
+    const d = Math.hypot(bola.x - e.x, bola.y - e.y);
+    if (d > bola.r + e.r) continue;
+
+    /* Bola grande: la espinas se destruye y da puntos */
+    if (bola.r >= e.r * 2.4) {
+      const ganados = 80 + estado.nivel * 10;
+      e.activa = false; e.reaparicion = 2.2;
+      burst(e.x, e.y, 34, '#ffb703', 90, 340, 6);
+      flotante(e.x, e.y, '+' + ganados, '#ffd166');
+      estado.sacudida = Math.min(12, estado.sacudida + 8);
+      sumarPuntos(ganados);
+      sfx.aplastar();
+      continue;
+    }
+    if (estado.invulnerable > 0) continue;
+
+    /* Bola pequeña: rebotas fuera y pierdes tamaño y puntos */
+    const ang = Math.atan2(bola.y - e.y, bola.x - e.x);
+    const m = Math.hypot(bola.vx, bola.vy) || 1;
+    bola.vx = Math.cos(ang) * m; bola.vy = Math.sin(ang) * m;
+    bola.r -= Math.max(6, bola.r * 0.16);
+    estado.puntos = Math.max(0, estado.puntos - 45);
+    estado.puntosNivel = Math.max(0, estado.puntosNivel - 45);
+    estado.invulnerable = 1.0;   // i-frames para no repetir el daño
+    estado.sacudida = 22;
+    estado.flash = 0.7; estado.flashColor = '255,70,100';
+    burst(bola.x, bola.y, 30, '#ff4d6d', 120, 380, 6);
+    flotante(bola.x, bola.y, '¡AY!', '#ff6b8a');
+    e.vx -= Math.cos(ang) * 40; e.vy -= Math.sin(ang) * 40; // empujón a la espina
+    sfx.dano();
+    if (bola.r <= cfg.rMin) {
+      terminar('¡Las espinas desinflaron la bola!');
+      return;
+    }
+  }
+}
+
+/* --------- Movimiento y rebotes --------- */
+function impactoPared(x, y, nx, ny) {
+  const col = rgb(colorRiesgo(riesgo()), 1);
+  for (let i = 0; i < 9; i++) {
+    const a = Math.atan2(ny, nx) + aleatorio(-0.9, 0.9);
+    const v = aleatorio(80, 280);
+    nuevaParticula(x, y, Math.cos(a) * v, Math.sin(a) * v, col, aleatorio(2, 5), aleatorio(.25, .55));
+  }
+  estado.sacudida = Math.min(9, estado.sacudida + 2.5 + bola.r * 0.04);
+  if (estado.pantalla === 'jugando') {     // en el menú no hay puntos ni sonido
+    sumarPuntos(Math.round(6 + (bola.r / 5) * 3 + estado.nivel * 2));
+    flotante(x, y, '+' + Math.round(6 + (bola.r / 5) * 3 + estado.nivel * 2), rgb(colorRiesgo(riesgo()), 1));
+    sfx.rebote(bola.r);
+  }
+}
+
+function moverBola(dt) {
+  if (!bola.viva) return;
+  bola.x += bola.vx * dt;
+  bola.y += bola.vy * dt;
+  const mi = bola.x - bola.r <= 0, md = bola.x + bola.r >= ancho;
+  const ma = bola.y - bola.r <= 0, mb = bola.y + bola.r >= alto;
+  if (mi) { bola.x = bola.r; bola.vx = Math.abs(bola.vx); impactoPared(bola.x, bola.y, 1, 0); }
+  else if (md) { bola.x = ancho - bola.r; bola.vx = -Math.abs(bola.vx); impactoPared(bola.x, bola.y, -1, 0); }
+  if (ma) { bola.y = bola.r; bola.vy = Math.abs(bola.vy); impactoPared(bola.x, bola.y, 0, 1); }
+  else if (mb) { bola.y = alto - bola.r; bola.vy = -Math.abs(bola.vy); impactoPared(bola.x, bola.y, 0, -1); }
+}
+
+/* --------- Actualizaciones por pantalla --------- */
+function actualizarJuego(dt) {
+  estado.cooldown = Math.max(0, estado.cooldown - dt);
+  estado.invulnerable = Math.max(0, estado.invulnerable - dt);
+
+  /* La bola pierde aire poco a poco: si llega al mínimo, se apaga */
+  if (bola.viva) {
+    bola.r -= (cfg.desinflarBase + (estado.nivel - 1) * cfg.desinflarNivel) * dt;
+    if (bola.r <= cfg.rMin) {
+      bola.r = cfg.rMin;
+      burst(bola.x, bola.y, 60, '#9bd0ff', 80, 380, 6);
+      terminar('¡La bola se quedó sin aire!');
+      return;
+    }
+  }
+
+  /* Dirección: arrastre con ratón/dedo, o teclado */
+  if (puntero.arrastrando) girarHacia(puntero.x, puntero.y, dt, cfg.giroPuntero);
+  else {
+    const izq = teclas['arrowleft'] || teclas['a'];
+    const der = teclas['arrowright'] || teclas['d'];
+    const arr = teclas['arrowup'] || teclas['w'];
+    const aba = teclas['arrowdown'] || teclas['s'];
+    if (izq) girarHacia(bola.x - 200, bola.y, dt, cfg.giroTeclado);
+    else if (der) girarHacia(bola.x + 200, bola.y, dt, cfg.giroTeclado);
+    else if (arr) girarHacia(bola.x, bola.y - 200, dt, cfg.giroTeclado);
+    else if (aba) girarHacia(bola.x, bola.y + 200, dt, cfg.giroTeclado);
+  }
+
+  /* Mantener pulsado (espacio, clic o dedo) sigue inflando la bola:
+     el enfriado (cooldown) marca el ritmo, así no dependemos del
+     repetido de teclas del sistema operativo. */
+  if (teclas[' '] || teclas['spacebar'] || puntero.manteniendo) intentarCrecer();
+
+  moverBola(dt);
+  moverEspinas(dt);
+  comprobarEspinas();
+
+  /* Estela */
+  if (bola.viva) {
+    estela.push({ x: bola.x, y: bola.y, r: bola.r * 0.92, vida: 1 });
+    if (estela.length > 24) estela.shift();
+  }
+}
+
+function actualizarDemo(dt) {
+  /* La bola "respira" para ambientar el menú */
+  bola.r = cfg.rMin + (cfg.rMax - cfg.rMin) * (0.42 + 0.34 * Math.sin(estado.tiempo * 1.3));
+  moverBola(dt);
+  estela.push({ x: bola.x, y: bola.y, r: bola.r * 0.92, vida: 1 });
+  if (estela.length > 24) estela.shift();
+}
+
+function actualizarEfectos(dt) {
+  const fric = Math.pow(0.94, dt * 60);
+  for (let i = particulas.length - 1; i >= 0; i--) {
+    const p = particulas[i];
+    p.vida -= dt / p.dur;
+    if (p.vida <= 0) { particulas.splice(i, 1); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= fric; p.vy *= fric;
+  }
+  for (let i = flotantes.length - 1; i >= 0; i--) {
+    const f = flotantes[i];
+    f.vida -= dt / f.dur; f.y -= 42 * dt;
+    if (f.vida <= 0) flotantes.splice(i, 1);
+  }
+  for (let i = estela.length - 1; i >= 0; i--) {
+    estela[i].vida -= dt / 0.45;
+    if (estela[i].vida <= 0) estela.splice(i, 1);
+  }
+}
+
+/* ----------------------------------------------------------
+   11. DIBUJO
+   ---------------------------------------------------------- */
+function dibujarFondo() {
+  const g = ctx.createLinearGradient(0, 0, 0, alto);
+  g.addColorStop(0, '#0b1026'); g.addColorStop(.5, '#130c2f'); g.addColorStop(1, '#060a1a');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, ancho, alto);
+
+  /* Rejilla que se desplaza lentamente */
+  const sep = 48, off = (estado.tiempo * 16) % sep;
+  ctx.strokeStyle = 'rgba(120,160,255,.07)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = -sep + off; x < ancho + sep; x += sep) { ctx.moveTo(x, 0); ctx.lineTo(x, alto); }
+  for (let y = -sep + off; y < alto + sep; y += sep) { ctx.moveTo(0, y); ctx.lineTo(ancho, y); }
+  ctx.stroke();
+
+  /* Resplandor central */
+  const rg = ctx.createRadialGradient(ancho / 2, alto / 2, 0, ancho / 2, alto / 2, Math.max(ancho, alto) * .65);
+  rg.addColorStop(0, 'rgba(90,120,255,.10)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = rg; ctx.fillRect(0, 0, ancho, alto);
+
+  /* Viñeta */
+  const vg = ctx.createRadialGradient(ancho / 2, alto / 2, Math.min(ancho, alto) * .3,
+                                     ancho / 2, alto / 2, Math.max(ancho, alto) * .75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.65)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, ancho, alto);
+}
+
+function rutaRedondeada(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function dibujarMarco() {
+  const col = colorRiesgo(riesgo());
+  ctx.save();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = rgb(col, .75);
+  ctx.shadowColor = rgb(col, .9);
+  ctx.shadowBlur = 18 + riesgo() * 14;
+  rutaRedondeada(4, 4, ancho - 8, alto - 8, 16);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* Círculo punteado que recuerda el tamaño máximo alcanzable */
+function dibujarLimite() {
+  if (!bola.viva) return;
+  const peligro = riesgo();
+  const pulso = .16 + (peligro > .75 ? Math.abs(Math.sin(estado.tiempo * 7)) * .4 : .12);
+  ctx.save();
+  ctx.setLineDash([7, 9]);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = rgb(colorRiesgo(peligro), pulso);
+  ctx.beginPath(); ctx.arc(bola.x, bola.y, cfg.rMax, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+function dibujarEstela() {
+  if (!estela.length) return;
+  const col = colorRiesgo(riesgo());
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const s of estela) {
+    const k = limitar(s.vida, 0, 1);
+    ctx.globalAlpha = k * .33;
+    ctx.fillStyle = rgb(col, 1);
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r * k, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function dibujarBola() {
+  const peligro = riesgo();
+  const col = colorRiesgo(peligro);
+  /* Parpadeo durante la inmunidad tras un choque */
+  const parpadeo = estado.invulnerable > 0 && Math.floor(estado.tiempo * 14) % 2 === 0;
+  const r = bola.r * (1 + Math.sin(estado.tiempo * 7) * .025);
+  ctx.save();
+  if (parpadeo) ctx.globalAlpha = .45;
+
+  /* Halo */
+  ctx.shadowColor = rgb(col, .95);
+  ctx.shadowBlur = 26 + peligro * 26;
+
+  /* Cuerpo con degradado radial */
+  const g = ctx.createRadialGradient(bola.x - r * .35, bola.y - r * .4, r * .08, bola.x, bola.y, r);
+  g.addColorStop(0, 'rgba(255,255,255,.98)');
+  g.addColorStop(.45, rgb(col, 1));
+  g.addColorStop(1, rgb(oscurecer(col, .55), 1));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(bola.x, bola.y, r, 0, Math.PI * 2); ctx.fill();
+
+  ctx.shadowBlur = 0;
+  /* Brillo interior */
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  ctx.beginPath(); ctx.arc(bola.x - r * .3, bola.y - r * .36, r * .2, 0, Math.PI * 2); ctx.fill();
+  /* Aro exterior */
+  ctx.lineWidth = Math.max(2, r * .07);
+  ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.beginPath(); ctx.arc(bola.x, bola.y, Math.max(1, r - ctx.lineWidth / 2), 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+/* Espina: estrella de 8 puntas giratoria */
+function dibujarEspinas() {
+  for (const e of espinas) {
+    if (!e.activa) continue;
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.ang);
+    ctx.shadowColor = 'rgba(255,90,120,.9)'; ctx.shadowBlur = 16;
+    const g = ctx.createRadialGradient(0, 0, 1, 0, 0, e.r);
+    g.addColorStop(0, '#ffd9a0'); g.addColorStop(.55, '#ff7a5c'); g.addColorStop(1, '#c11f4f');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const rr = (i % 2 === 0) ? e.r : e.r * .45;
+      ctx[i === 0 ? 'moveTo' : 'lineTo'](Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+    /* Núcleo */
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(0, 0, e.r * .16, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function dibujarParticulas() {
+  if (!particulas.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const p of particulas) {
+    ctx.globalAlpha = limitar(p.vida, 0, 1);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.tam * limitar(p.vida, 0, 1), 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function dibujarFlotantes() {
+  if (!flotantes.length) return;
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = "800 " + Math.round(Math.min(ancho * .05, 26)) + "px 'Segoe UI', system-ui, sans-serif";
+  for (const f of flotantes) {
+    ctx.globalAlpha = limitar(f.vida, 0, 1);
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(5,8,20,.9)';
+    ctx.strokeText(f.txt, f.x, f.y);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.txt, f.x, f.y);
+  }
+  ctx.restore();
+}
+
+function dibujarAviso() {
+  if (estado.avisoTiempo <= 0) return;
+  const k = estado.avisoTiempo / estado.avisoDur;      // 1 → 0
+  const alfa = Math.min(Math.min(1, (1 - k) * 8), Math.min(1, k * 5));
+  ctx.save();
+  ctx.globalAlpha = alfa;
+  ctx.translate(ancho / 2, alto * .42);
+  const esc = .82 + (1 - k) * .3;
+  ctx.scale(esc, esc);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = "900 " + Math.round(Math.min(ancho * .12, 62)) + "px 'Segoe UI', system-ui, sans-serif";
+  ctx.lineWidth = 9; ctx.strokeStyle = 'rgba(5,8,20,.9)';
+  ctx.strokeText(estado.aviso, 0, 0);
+  ctx.fillStyle = '#eafffb';
+  ctx.shadowColor = 'rgba(122,92,255,.9)'; ctx.shadowBlur = 26;
+  ctx.fillText(estado.aviso, 0, 0);
+  ctx.restore();
+}
+
+function dibujarDestello() {
+  if (estado.flash <= 0) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = 'rgba(' + estado.flashColor + ',' + (estado.flash * .32).toFixed(3) + ')';
+  ctx.fillRect(0, 0, ancho, alto);
+  ctx.restore();
+}
+
+function dibujar() {
+  dibujarFondo();                       // el fondo nunca se sacude
+  ctx.save();
+  if (estado.sacudida > .2) {
+    ctx.translate(aleatorio(-estado.sacudida, estado.sacudida),
+                  aleatorio(-estado.sacudida, estado.sacudida));
+  }
+  dibujarMarco();
+  dibujarLimite();
+  dibujarEstela();
+  dibujarEspinas();
+  if (bola.viva) dibujarBola();
+  dibujarParticulas();
+  dibujarFlotantes();
+  dibujarAviso();
+  ctx.restore();
+  dibujarDestello();
+}
+
+/* ----------------------------------------------------------
+   12. BUCLE PRINCIPAL
+   ---------------------------------------------------------- */
+let ultimo = 0;
+function bucle(t) {
+  if (!ultimo) ultimo = t;
+  const dt = Math.min(.05, Math.max(0, (t - ultimo) / 1000));
+  ultimo = t;
+  estado.tiempo += dt;
+
+  estado.sacudida = Math.max(0, estado.sacudida - dt * 42);
+  estado.flash = Math.max(0, estado.flash - dt * 2.2);
+  if (estado.avisoTiempo > 0) estado.avisoTiempo = Math.max(0, estado.avisoTiempo - dt);
+
+  if (estado.pantalla === 'jugando') actualizarJuego(dt);
+  else if (estado.pantalla === 'inicio') actualizarDemo(dt);
+  if (estado.pantalla !== 'pausa') actualizarEfectos(dt);
+
+  dibujar();
+  refrescarHUD();
+  requestAnimationFrame(bucle);
+}
+
+/* ----------------------------------------------------------
+   13. CONTROLES: TECLADO, RATÓN Y TÁCTIL
+   ---------------------------------------------------------- */
+window.addEventListener('keydown', (e) => {
+  const k = (e.key || '').toLowerCase();
+  /* Evita que la barra de espacio o las flechas muevan la página */
+  if ([' ', 'spacebar', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].indexOf(k) !== -1) e.preventDefault();
+  teclas[k] = true;
+  asegurarAudio();
+
+  if (k === ' ' || k === 'spacebar' || k === 'enter') {
+    if (estado.pantalla === 'jugando') intentarCrecer();
+    else if (estado.pantalla === 'inicio' || estado.pantalla === 'fin') empezar();
+    else if (estado.pantalla === 'pausa') alternarPausa();
+  }
+  if ((k === 'p' || k === 'escape') && !e.repeat &&
+      (estado.pantalla === 'jugando' || estado.pantalla === 'pausa')) alternarPausa();
+  if (k === 'm' && !e.repeat) alternarSilencio();
+  if (k === 'r' && !e.repeat && estado.pantalla === 'fin') empezar();
+});
+window.addEventListener('keyup', (e) => { teclas[(e.key || '').toLowerCase()] = false; });
+
+/* Ratón: pulsar para inflar, arrastrar para dirigir */
+function actualizarPuntero(ev) {
+  const rect = canvas.getBoundingClientRect();
+  puntero.x = ev.clientX - rect.left;
+  puntero.y = ev.clientY - rect.top;
+}
+canvas.addEventListener('mousedown', (e) => {
+  asegurarAudio();
+  actualizarPuntero(e);
+  puntero.arrastrando = true;
+  puntero.manteniendo = true;
+  if (estado.pantalla === 'jugando') intentarCrecer();
+  else if (estado.pantalla === 'fin') empezar();
+});
+window.addEventListener('mousemove', (e) => { actualizarPuntero(e); });
+window.addEventListener('mouseup', () => { puntero.arrastrando = false; puntero.manteniendo = false; });
+canvas.addEventListener('mouseleave', () => { puntero.arrastrando = false; });
+
+/* Táctil: tocar para inflar, mantener y arrastrar para dirigir */
+canvas.addEventListener('touchstart', (e) => {
+  const t = e.touches[0]; if (!t) return;
+  e.preventDefault();
+  asegurarAudio();
+  actualizarPuntero(t);
+  puntero.arrastrando = true;
+  puntero.manteniendo = true;
+  if (estado.pantalla === 'jugando') intentarCrecer();
+  else if (estado.pantalla === 'fin') empezar();
+}, { passive: false });
+canvas.addEventListener('touchmove', (e) => {
+  const t = e.touches[0]; if (!t) return;
+  e.preventDefault();
+  actualizarPuntero(t);
+}, { passive: false });
+canvas.addEventListener('touchend', () => { puntero.arrastrando = false; puntero.manteniendo = false; }, { passive: false });
+canvas.addEventListener('touchcancel', () => { puntero.arrastrando = false; puntero.manteniendo = false; });
+
+/* Botones de la interfaz */
+$('btnJugar').addEventListener('click', (e) => { e.currentTarget.blur(); empezar(); });
+$('btnReintentar').addEventListener('click', (e) => { e.currentTarget.blur(); empezar(); });
+$('btnFinMenu').addEventListener('click', (e) => { e.currentTarget.blur(); iniciarDemo(); });
+$('btnReanudar').addEventListener('click', (e) => { e.currentTarget.blur(); alternarPausa(); });
+$('btnPausaMenu').addEventListener('click', (e) => { e.currentTarget.blur(); iniciarDemo(); });
+elBtnPausa.addEventListener('click', (e) => { e.currentTarget.blur(); alternarPausa(); });
+elBtnSilencio.addEventListener('click', (e) => { e.currentTarget.blur(); alternarSilencio(); });
+
+/* Pausa automática al perder el foco o minimizar */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && estado.pantalla === 'jugando') alternarPausa();
+});
+window.addEventListener('blur', () => { if (estado.pantalla === 'jugando') alternarPausa(); });
+
+/* Redimensionados */
+let retardoResize = 0;
+window.addEventListener('resize', () => {
+  clearTimeout(retardoResize);
+  retardoResize = setTimeout(redimensionar, 120);
+});
+window.addEventListener('orientationchange', () => setTimeout(redimensionar, 200));
+
+/* ----------------------------------------------------------
+   14. ARRANQUE
+   ---------------------------------------------------------- */
+redimensionar();
+iniciarDemo();
+requestAnimationFrame(bucle);
+</script>
+</body>
+</html>

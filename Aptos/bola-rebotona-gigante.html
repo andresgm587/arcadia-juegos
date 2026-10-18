@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bola Rebotona Gigante</title>
+<style>
+  /* ============================================================
+     ESTILOS: tema oscuro espacial con neón, paneles tipo vidrio
+     ============================================================ */
+  :root{
+    --acento:   #5ef2ff;   /* cian neón */
+    --acento2:  #ff5ea8;   /* rosa neón */
+    --oro:      #ffd166;
+    --fondo:    #05070f;
+    --vidrio:   rgba(255,255,255,.06);
+    --borde:    rgba(255,255,255,.14);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; margin:0; }
+  body{
+    font-family:'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+    color:#eaf2ff;
+    background:
+      radial-gradient(1200px 700px at 12% -12%, #1c2c66 0%, transparent 55%),
+      radial-gradient(900px  600px at 108% 18%, #4c1352 0%, transparent 55%),
+      linear-gradient(160deg,#05070f 0%, #0a1024 60%, #05070f 100%);
+    display:flex; justify-content:center;
+    overflow:hidden;
+  }
+  #app{
+    width:min(1140px,100%);
+    height:100vh; height:100dvh;   /* dvh para móviles modernos */
+    display:flex; flex-direction:column; gap:10px; padding:10px 12px;
+  }
+  /* ---------- HUD superior ---------- */
+  #hud{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; }
+  #hudIzq, #hudDer{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .tarjeta{
+    background:var(--vidrio);
+    border:1px solid var(--borde);
+    border-radius:14px;
+    padding:5px 12px;
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    box-shadow:0 6px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+    display:flex; flex-direction:column; line-height:1.15; min-width:74px;
+  }
+  .tarjeta.peq{ min-width:0; padding:4px 10px; }
+  .tarjeta .etiqueta{ font-size:10px; letter-spacing:1.5px; text-transform:uppercase; opacity:.65; }
+  .tarjeta .valor{ font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .tarjeta.peq .valor{ font-size:15px; }
+  .valor.cian{ color:var(--acento); text-shadow:0 0 14px rgba(94,242,255,.6); }
+  .valor.rosa{ color:var(--acento2); text-shadow:0 0 14px rgba(255,94,168,.6); }
+  .valor.oro{ color:var(--oro); text-shadow:0 0 14px rgba(255,209,102,.6); }
+  /* barras */
+  .barra{ width:104px; height:9px; border-radius:6px; background:rgba(255,255,255,.1); overflow:hidden; margin-top:4px; }
+  .tarjeta.peq .barra{ width:76px; height:7px; }
+  .barra > div{
+    height:100%; width:0%;
+    background:linear-gradient(90deg,var(--acento),var(--acento2));
+    box-shadow:0 0 12px rgba(94,242,255,.8);
+    transition:width .12s linear;
+  }
+  .barra.oro > div{ background:linear-gradient(90deg,var(--oro),#ff9f43); box-shadow:0 0 10px rgba(255,209,102,.75); }
+  .barra.rosa > div{ background:linear-gradient(90deg,var(--acento2),#ff9f43); box-shadow:0 0 10px rgba(255,94,168,.7); }
+  /* botones */
+  .boton{
+    cursor:pointer; border:1px solid var(--borde); color:#eaf2ff;
+    background:var(--vidrio); border-radius:12px; padding:9px 14px;
+    font-size:14px; font-weight:700; letter-spacing:.5px;
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    transition:transform .12s ease, box-shadow .12s ease, background .12s ease, opacity .12s ease;
+  }
+  .boton:hover{ background:rgba(255,255,255,.12); box-shadow:0 0 18px rgba(94,242,255,.35); }
+  .boton:active{ transform:scale(.94); }
+  .boton.peq{ padding:7px 10px; font-size:12px; border-radius:10px; }
+  .boton.lista{ border-color:var(--acento); box-shadow:0 0 16px rgba(94,242,255,.5); color:var(--acento); }
+  .boton.listaOro{ border-color:var(--oro); box-shadow:0 0 16px rgba(255,209,102,.5); color:var(--oro); }
+  .boton.apagado{ opacity:.38; }
+  .boton.primario{
+    background:linear-gradient(135deg,var(--acento) 0%, var(--acento2) 100%);
+    color:#04121c; border:none; padding:14px 30px; font-size:17px; border-radius:16px;
+    box-shadow:0 10px 30px rgba(94,242,255,.35), 0 0 0 1px rgba(255,255,255,.15) inset;
+  }
+  .boton.primario:hover{ box-shadow:0 12px 40px rgba(255,94,168,.45); }
+  /* ---------- Zona de juego ---------- */
+  #zonaJuego{
+    position:relative; flex:1 1 auto; min-height:250px;
+    border-radius:20px; overflow:hidden;
+    background:linear-gradient(180deg, rgba(10,16,34,.9), rgba(5,8,18,.95));
+    border:1px solid var(--borde);
+    box-shadow:0 20px 60px rgba(0,0,0,.55), inset 0 0 60px rgba(0,0,0,.5);
+  }
+  canvas{ display:block; width:100%; height:100%; touch-action:none; }
+  /* paneles superpuestos */
+  .panel{
+    position:absolute; inset:0; z-index:5;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:12px; text-align:center; padding:16px;
+    background:radial-gradient(circle at 50% 40%, rgba(12,18,40,.78), rgba(3,5,12,.92));
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    animation:aparecer .25s ease;
+    overflow:auto;
+  }
+  .panel.oculto{ display:none; }
+  @keyframes aparecer{ from{ opacity:0; transform:scale(.96);} to{ opacity:1; transform:scale(1);} }
+  .panel h1{
+    margin:0; font-size:clamp(24px,4.6vw,42px); letter-spacing:2px;
+    background:linear-gradient(135deg,var(--acento),var(--acento2),var(--oro));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 18px rgba(94,242,255,.45));
+  }
+  .panel h2{ margin:0; font-size:clamp(19px,3.6vw,28px); color:var(--oro); text-shadow:0 0 20px rgba(255,209,102,.5); }
+  .panel p{ margin:0; max-width:600px; opacity:.88; font-size:13.5px; line-height:1.5; }
+  .panel p b{ color:var(--acento); }
+  .teclas{ display:flex; flex-wrap:wrap; gap:7px; justify-content:center; }
+  .tecla{
+    background:rgba(255,255,255,.07); border:1px solid var(--borde); border-bottom-width:3px;
+    border-radius:9px; padding:6px 10px; font-size:12px; font-weight:700;
+  }
+  .resumen{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  /* pie de ayuda */
+  #pie{
+    display:flex; flex-wrap:wrap; gap:6px 18px; justify-content:center; align-items:center;
+    font-size:11.5px; opacity:.75; letter-spacing:.4px;
+  }
+  #pie b{ color:var(--acento); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== HUD ===================== -->
+  <header id="hud">
+    <div id="hudIzq">
+      <div class="tarjeta"><span class="etiqueta">Puntos</span><span class="valor cian" id="uiPuntos">0</span></div>
+      <div class="tarjeta peq"><span class="etiqueta">Nivel</span><span class="valor oro" id="uiNivel">1</span><div class="barra oro"><div id="barraNivel"></div></div></div>
+      <div class="tarjeta peq"><span class="etiqueta">Combo</span><span class="valor rosa" id="uiCombo">×1</span><div class="barra rosa"><div id="barraCombo"></div></div></div>
+      <div class="tarjeta peq"><span class="etiqueta">Tamaño</span><span class="valor" id="uiMult">×1</span><div class="barra"><div id="barraTam"></div></div></div>
+      <div class="tarjeta peq"><span class="etiqueta">Mejor</span><span class="valor" id="uiMejor">0</span></div>
+    </div>
+    <div id="hudDer">
+      <div class="tarjeta peq"><span class="etiqueta">Carga</span><span class="valor cian" id="uiCarga">0%</span><div class="barra"><div id="barraCarga"></div></div></div>
+      <div class="tarjeta peq"><span class="etiqueta">Escudo</span><span class="valor" id="uiEscudo">—</span></div>
+      <div class="tarjeta peq"><span class="etiqueta">Veloc.</span><span class="valor" id="uiVelocidad">0</span></div>
+      <button class="boton peq" id="btnPulso" title="Super Pulso (R)">⚡ Pulso</button>
+      <button class="boton peq" id="btnDash" title="Dash (E)">💨 Dash</button>
+      <button class="boton" id="btnSonido" title="Silenciar (M)">🔊</button>
+      <button class="boton" id="btnPausa" title="Pausa (P)">⏸</button>
+    </div>
+  </header>
+
+  <!-- ===================== ZONA DE JUEGO ===================== -->
+  <main id="zonaJuego">
+    <canvas id="juego"></canvas>
+
+    <!-- Panel de inicio -->
+    <section class="panel" id="panelInicio">
+      <h1>BOLA REBOTONA GIGANTE</h1>
+      <p>Ahora<b>MANDEAS</b> a la bola: muévete con el <b>ratón</b> (imanta) o con <b>WASD / flechas</b>.
+ Atraviesa los <b>anillos</b> por el centro para cargar, encadena<b>esquinas</b> y <b>dash</b> para
+         subir el <b>combo</b> (hasta ×8). Creces con <b>ESPACIO / clic</b>: más grande = más puntos,
+         pero más rápido y sin hueco para pasar anillos. Con <b>SHIFT</b> frenas para apuntar fino y
+         con <b>R</b> lanzas el <b>SUPER PULSO</b>. ¡Cada 5 niveles aparece un <b>GUARDIÁN</b>!
+         Y si te quedas<b>parado</b> Starts a perder puntos y a encoger.</p>
+      <div class="teclas">
+        <span class="tecla">RATÓN / ARRASTRAR · dirigir</span>
+        <span class="tecla">WASD · empujar</span>
+        <span class="tecla">ESPACIO / CLIC · crecer</span>
+        <span class="tecla">SHIFT · freno</span>
+        <span class="tecla">E / DOBLE CLIC · dash</span>
+        <span class="tecla">R · super pulso</span>
+        <span class="tecla">P · pausa</span>
+        <span class="tecla">ENTER · empezar</span>
+      </div>
+      <button class="boton primario" id="btnJugar">▶ JUGAR</button>
+    </section>
+
+    <!-- Panel de pausa -->
+    <section class="panel oculto" id="panelPausa">
+      <h2>PAUSA</h2>
+      <p>La bola se queda quieta… por ahora.</p>
+      <button class="boton primario" id="btnContinuar">▶ CONTINUAR</button>
+    </section>
+
+    <!-- Panel de fin de partida -->
+    <section class="panel oculto" id="panelFinal">
+      <h2 id="txtFinTitulo">¡FIN DE PARTIDA!</h2>
+      <div class="resumen">
+        <div class="tarjeta"><span class="etiqueta">Puntos</span><span class="valor cian" id="txtFinPuntos">0</span></div>
+        <div class="tarjeta"><span class="etiqueta">Nivel</span><span class="valor oro" id="txtFinNivel">1</span></div>
+        <div class="tarjeta"><span class="etiqueta">Mejor combo</span><span class="valor rosa" id="txtFinCombo">×1</span></div>
+        <div class="tarjeta"><span class="etiqueta">Mejor</span><span class="valor" id="txtFinMejor">0</span></div>
+      </div>
+      <p id="txtFinNota">Pulsa ENTER o el botón para reintentar.</p>
+      <button class="boton primario" id="btnReintentar">🔄 REINTENTAR</button>
+    </section>
+  </main>
+
+  <!-- ===================== PIE ===================== -->
+  <footer id="pie">
+    <span><b>RATÓN / WASD</b> dirigir</span>
+    <span><b>ESPACIO</b> crecer</span>
+    <span><b>SHIFT</b> freno</span>
+    <span><b>E</b> dash</span>
+    <span><b>R</b> super pulso</span>
+    <span>★ escudo · anillos = carga · <b>P</b> pausa · <b>M</b> sonido</span>
+  </footer>
+</div>
+
+<script>
+'use strict';
+/* ============================================================================
+   BOLA REBOTONA GIGANTE v2 — motor de juego completo
+   - Bola con rebote automático que CRECE al pulsar espacio / clic / toque.
+   - AHORA SE MANDEA: imanta de ratón, empuje WASD, freno (SHIFT), DASH (E)
+     y SUPER PULSO (R) con energía. Puntuación = habilidad, no azar.
+   - Peligros: espinas ancladas, minas a la deriva y rastreadoras que te persiguen.
+   - Anillos (bonificación + carga), combo ×8, penalización por pereza,
+     GUARDIÓN (mini-jefe) cada 5 niveles, partículas, WebAudio y pausa.
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- Utilidades */
+const aleatorio   = (a, b) => a + Math.random() * (b - a);
+const limitar     = (v, a, b) => Math.max(a, Math.min(b, v));
+const distancia   = (x1,y1,x2,y2) => Math.hypot(x2-x1, y2-y1);
+
+/* --------------------------------------------------------------- Sonido (WebAudio) */
+const Sonido = {
+  ctx: null, master: null, silenciado: false, VOLUMEN: 0.3,
+  _timerMusica: null, _paso: 0, _proximo: 0,
+
+  iniciar(){
+    if(this.ctx === null){
+      try{
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if(!AC) return;
+        this.ctx   = new AC();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = this.silenciado ? 0 : this.VOLUMEN;
+        this.master.connect(this.ctx.destination);
+      }catch(e){ this.ctx = null; return; }
+    }
+    if(this.ctx.state === 'suspended') this.ctx.resume().catch(()=>{});
+    this.iniciarMusica();
+  },
+
+  /* Nota con barrido de frecuencia y envolvente (t0 opcional para el loop) */
+  tono(f0, f1, dur, tipo, vol, t0){
+    if(!this.ctx || this.silenciado) return;
+    try{
+      const t = (t0 === undefined) ? this.ctx.currentTime : t0;
+      const osc = this.ctx.createOscillator();
+      const gan = this.ctx.createGain();
+      osc.type = tipo || 'sine';
+      osc.frequency.setValueAtTime(Math.max(1,f0), t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1,f1), t + dur);
+      gan.gain.setValueAtTime(0.0001, t);
+      gan.gain.exponentialRampToValueAtTime(Math.max(0.0002,vol), t + 0.012);
+      gan.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gan); gan.connect(this.master);
+      osc.start(t); osc.stop(t + dur + 0.03);
+    }catch(e){}
+  },
+
+  /* Ruido filtrado (explosiones) */
+  ruido(dur, vol, fFinal){
+    if(!this.ctx || this.silenciado) return;
+    try{
+      const t = this.ctx.currentTime;
+      const largo = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
+      const buf = this.ctx.createBuffer(1, largo, this.ctx.sampleRate);
+      const datos = buf.getChannelData(0);
+      for(let i = 0; i < largo; i++) datos[i] = (Math.random()*2 - 1) * (1 - i/largo);
+      const src = this.ctx.createBufferSource(); src.buffer = buf;
+      const filtro = this.ctx.createBiquadFilter(); filtro.type = 'lowpass';
+      filtro.frequency.setValueAtTime(2200, t);
+      filtro.frequency.exponentialRampToValueAtTime(Math.max(60, fFinal||120), t + dur);
+      const gan = this.ctx.createGain(); gan.gain.value = vol;
+      src.connect(filtro); filtro.connect(gan); gan.connect(this.master);
+      src.start(t);
+    }catch(e){}
+  },
+
+  /* ---- Bucle musical sencillo (secuenciador con lookahead) ---- */
+  iniciarMusica(){
+    if(this._timerMusica || !this.ctx || this.silenciado) return;
+    this._paso = 0;
+    this._proximo = this.ctx.currentTime + 0.08;
+    this._timerMusica = setInterval(()=> this.programar(), 40);
+  },
+  detenerMusica(){ if(this._timerMusica){ clearInterval(this._timerMusica); this._timerMusica = null; } },
+  programar(){
+    if(!this.ctx){ this.detenerMusica(); return; }
+    if(this.silenciado || JUEGO.estado !== 'jugando'){ this._proximo = this.ctx.currentTime + 0.08; return; }
+    const t0 = this.ctx.currentTime;
+    let vueltas = 0;
+    while(this._proximo < t0 + 0.16 && vueltas < 8){
+      this.paso(this._proximo);
+      this._proximo += 0.19;
+      this._paso++; vueltas++;
+    }
+  },
+  paso(t){
+    const raiz  = 110 * Math.pow(2, Math.min(4, (JUEGO.nivel-1)) / 12);
+    const escala = [0, 7, 12, 10, 7, 3, 10, 15];
+    const f = raiz * Math.pow(2, escala[this._paso % escala.length] / 12) * 2;
+    this.tono(f, f, 0.16, 'triangle', 0.03, t);
+    if(this._paso % 8 === 0) this.tono(raiz/2, raiz/2*0.8, 0.24, 'sine', 0.055, t); // bombo
+  },
+
+  rebotar(c){ this.tono(190 + c*30, 120 + c*22, 0.085, 'triangle', 0.22); },
+  crecer(n){ const f = 170 + n*20; this.tono(f, f*1.7, 0.12, 'sine', 0.28); this.tono(f*2, f*2.5, 0.07, 'square', 0.06); },
+  estrella(){ [523,659,784,1046].forEach((f,i)=> setTimeout(()=> this.tono(f, f*1.02, 0.12, 'triangle', 0.2), i*65)); },
+  nivel(){ [392,494,587,784].forEach((f,i)=> setTimeout(()=> this.tono(f, f, 0.17, 'sawtooth', 0.1), i*90)); },
+  escudo(){ this.tono(950, 260, 0.25, 'square', 0.16); },
+  muerte(){ this.ruido(0.75, 0.5, 70); this.tono(320, 38, 0.75, 'sawtooth', 0.22); },
+  maximo(){ this.tono(700, 1200, 0.2, 'triangle', 0.2); },
+  esquina(){ this.tono(880, 1500, 0.13, 'square', 0.16); },
+  combo(n){ this.tono(440*n, 520*n, 0.16, 'sine', 0.2); },
+  dash(){ this.ruido(0.2, 0.28, 500); this.tono(300, 900, 0.16, 'sawtooth', 0.16); },
+  pulso(){ this.ruido(0.45, 0.42, 90); this.tono(180, 40, 0.4, 'sine', 0.28); },
+  error(){ this.tono(220, 160, 0.14, 'square', 0.12); },
+  jefeGolpe(){ this.tono(160, 90, 0.22, 'sawtooth', 0.26); this.ruido(0.2, 0.2, 300); },
+  jefeVuela(){ this.tono(120, 300, 0.9, 'sawtooth', 0.12); },
+  jefeMuerte(){ this.ruido(0.9, 0.5, 60); [523,659,784,1046,1318].forEach((f,i)=> setTimeout(()=> this.tono(f, f, 0.3, 'triangle', 0.2), i*80)); },
+  alternar(){
+    this.silenciado = !this.silenciado;
+    if(this.master) this.master.gain.value = this.silenciado ? 0 : this.VOLUMEN;
+    if(this.silenciado) this.detenerMusica(); else if(this.ctx) this.iniciarMusica();
+  }
+};
+
+/* --------------------------------------------------------------- Variables DOM */
+const lienzo     = document.getElementById('juego');
+const ctx        = lienzo.getContext('2d');
+const contenedor = document.getElementById('zonaJuego');
+
+const uiPuntos    = document.getElementById('uiPuntos');
+const uiNivel     = document.getElementById('uiNivel');
+const uiCombo     = document.getElementById('uiCombo');
+const uiMult      = document.getElementById('uiMult');
+const uiMejor     = document.getElementById('uiMejor');
+const uiCarga     = document.getElementById('uiCarga');
+const uiEscudo    = document.getElementById('uiEscudo');
+const uiVelocidad = document.getElementById('uiVelocidad');
+const barraNivel  = document.getElementById('barraNivel');
+const barraCombo  = document.getElementById('barraCombo');
+const barraTam    = document.getElementById('barraTam');
+const barraCarga  = document.getElementById('barraCarga');
+const btnDash     = document.getElementById('btnDash');
+const btnPulso    = document.getElementById('btnPulso');
+
+const panelInicio = document.getElementById('panelInicio');
+const panelPausa  = document.getElementById('panelPausa');
+const panelFinal  = document.getElementById('panelFinal');
+
+/* --------------------------------------------------------------- Estado del juego */
+const MUNDO = { w: 800, h: 500 };   // tamaño lógico del área (píxeles CSS)
+let dpr = 1;                        // relación de píxeles del dispositivo
+
+const R_MIN = 14, R_MAX = 64;       // radios mínimo y máximo de la bola
+const V_MAX = 780;                  // velocidad máxima normal
+const V_DASH = 980;                 // velocidad máxima durante el dash
+const PUNTOS_NIVEL = 600;           // puntos necesarios por nivel
+
+const COMBO_MAX   = 8;              // tope del multiplicador de combo
+const COMBO_T     = 3.0;            // segundos sin evento antes de perder combo
+const PEREZA_T    = 4.2;            // segundos sin hacer nada → penalización
+const DASH_CD     = 1.5;            // enfriamiento del dash
+const CARGA_PULSO = 0.5;            // carga necesaria para el super pulso
+const RADIO_PULSO = 210;            // radio máximo del pulso
+const FUERZA_TECLADO = 640;         // empuje de WASD
+const K_IMAN = 6.2;           // imanta del ratón
+const K_IMAN_FRENO = 12.0;          // imanta más fuerte al frenar (precisión)
+const MAX_PUNTAS = 10, MAX_MINAS = 9, MAX_ANILLOS = 3;
+
+const JUEGO = {
+  estado: 'inicio',   // inicio | jugando | pausa | fin
+  puntos: 0,
+  nivel: 1,
+  mejor: 0,
+  mejorCombo: 1,
+  tiempo: 0,          // tiempo acumulado (animaciones)
+  sacudida: 0,        // temblor de cámara
+  destello: 0,        // destello a pantalla completa
+  destelloColor: '255,94,168',
+  invulnerable: 0,    // tras romper el escudo
+  combo: 1,
+  comboT: 0,
+  carga: 0,
+  inaccion: 0,        // tiempo sin hacer nada
+  pereza: false,
+  avisado: false,
+  dashT: 0,
+  dashCD: 0,
+  frenoTecla: false,
+  tempEstrella: 10,   // temporizador para la próxima estrella
+  tempAnillo: 1.5     // temporizador para el próximo anillo
+};
+
+const BOLA = {
+  x: 0, y: 0, vx: 0, vy: 0, r: R_MIN,
+  escalaX: 1, escalaY: 1,     // aplastamiento al rebotar
+  escudo: false,
+  estela: []                  // rastros del movimiento
+};
+
+/* Entrada unificada (teclado + ratón + táctil) */
+const ENTRADA = { teclas: new Set() };
+const PUNTERO = { x:0, y:0, activo:false, movido:false, x0:0, y0:0, t0:0, id:-1, ultimoClick:0 };
+
+let puntas      = [];  // espinas ancladas a las paredes
+let minas       = [];  // minas a la deriva / rastreadoras
+let anillos     = [];  // anillos-reward (pasan por el centro)
+let ondas = [];  // ondas de choque del pulso
+let estrella    = null;// recogible temporal (da escudo + bonus)
+let jefe        = null;// mini-jefe cada 5 niveles
+let particulas  = [];  // partículas de efectos
+let textos      = [];  // textos flotantes ("+30", "¡NIVEL 4!"...)
+let boquinos    = [];  // motas difusas del fondo
+let ultimaCrecida = -1;// control del reboteo de crecimiento
+
+/* --------------------------------------------------------------- PERSISTENCIA */
+function cargarMejor(){
+  try{
+    const v = localStorage.getItem('bolaRebotonaMejor'); if(v !== null) JUEGO.mejor = parseInt(v,10) || 0;
+    const c = localStorage.getItem('bolaRebotonaCombo'); if(c !== null) JUEGO.mejorCombo = parseInt(c,10) || 1;
+  }catch(e){}
+}
+function guardarMejor(){
+  try{
+    localStorage.setItem('bolaRebotonaMejor', String(JUEGO.mejor));
+    localStorage.setItem('bolaRebotonaCombo', String(JUEGO.mejorCombo));
+  }catch(e){}
+}
+
+/* --------------------------------------------------------------- CANVAS / RESIZE */
+function ajustarCanvas(){
+  const rect = contenedor.getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  MUNDO.w = Math.max(320, Math.round(rect.width));
+  MUNDO.h = Math.max(240, Math.round(rect.height));
+
+  lienzo.width  = Math.round(MUNDO.w * dpr);
+  lienzo.height = Math.round(MUNDO.h * dpr);
+
+  // Mantener todo dentro de los nuevos límites
+  BOLA.x = limitar(BOLA.x || MUNDO.w/2, BOLA.r, MUNDO.w - BOLA.r);
+  BOLA.y = limitar(BOLA.y || MUNDO.h/2, BOLA.r, MUNDO.h - BOLA.r);
+  minas.forEach(m => {
+    m.x = limitar(m.x, m.r, MUNDO.w - m.r);
+    m.y = limitar(m.y, m.r, MUNDO.h - m.r);
+  });
+  if(jefe){
+    jefe.x = limitar(jefe.x, jefe.r, MUNDO.w - jefe.r);
+    jefe.y = limitar(jefe.y, jefe.r, MUNDO.h - jefe.r);
+  }
+
+  // Regenerar motas de fondo si hace falta
+  if(boquinos.length === 0){
+    for(let i = 0; i < 34; i++){
+      boquinos.push({
+        x: aleatorio(0, MUNDO.w), y: aleatorio(0, MUNDO.h),
+        r: aleatorio(1.5, 5.5), a: aleatorio(.05, .22),
+        vx: aleatorio(-12, 12), vy: aleatorio(-12, 12)
+      });
+    }
+  }
+}
+if(window.ResizeObserver){
+  new ResizeObserver(ajustarCanvas).observe(contenedor);
+}else{
+  window.addEventListener('resize', ajustarCanvas);
+}
+
+/* --------------------------------------------------------------- GEOMETRÍA */
+function geometriaPunta(p){
+  const { lado, t, largo, prof } = p;
+  if(lado === 'arriba')    { const x = t*MUNDO.w;       return [[x-largo/2, 0],           [x+largo/2, 0],           [x, prof]]; }
+  if(lado === 'abajo')     { const x = t*MUNDO.w;       return [[x-largo/2, MUNDO.h],     [x+largo/2, MUNDO.h],     [x, MUNDO.h-prof]]; }
+  if(lado === 'izquierda') { const y = t*MUNDO.h;       return [[0, y-largo/2],           [0, y+largo/2],           [prof, y]]; }
+  return [[MUNDO.w, y0(t)], [MUNDO.w, y0(t) + largo], [MUNDO.w-prof, y0(t)+largo/2]];
+  function y0(tt){ return tt*MUNDO.h; }
+}
+function distPuntoSegmento(px, py, ax, ay, bx, by){
+  const dx = bx-ax, dy = by-ay;
+  const l2 = dx*dx + dy*dy;
+  if(l2 === 0) return distancia(px, py, ax, ay);
+  const t = limitar(((px-ax)*dx + (py-ay)*dy) / l2, 0, 1);
+  return distancia(px, py, ax + t*dx, ay + t*dy);
+}
+function dentroTriangulo(px, py, a, b, c){
+  const d1 = (px-b[0])*(a[1]-b[1]) - (a[0]-b[0])*(py-b[1]);
+  const d2 = (px-c[0])*(b[1]-c[1]) - (b[0]-c[0])*(py-c[1]);
+  const d3 = (px-a[0])*(c[1]-a[1]) - (c[0]-a[0])*(py-a[1]);
+  const neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+  const pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+  return !(neg && pos);
+}
+function bolaTocaTriangulo(cx, cy, r, v){
+  const [a,b,c] = v;
+  if(dentroTriangulo(cx, cy, a, b, c)) return true;
+  return distPuntoSegmento(cx, cy, a[0],a[1], b[0],b[1]) < r
+      || distPuntoSegmento(cx, cy, b[0],b[1], c[0],c[1]) < r
+      || distPuntoSegmento(cx, cy, c[0],c[1], a[0],a[1]) < r;
+}
+
+/* --------------------------------------------------------------- CREAR OBSTÁCULOS */
+function crearPunta(){
+  if(puntas.length >= MAX_PUNTAS) return;
+  const lados = ['arriba','abajo','izquierda','derecha'];
+  for(let intento = 0; intento < 25; intento++){
+    const lado  = lados[Math.floor(Math.random()*lados.length)];
+    const largo = aleatorio(64, 118);
+    const prof  = aleatorio(26, 48);
+    const t     = aleatorio(.12, .88);
+    let valido = true;
+    for(const p of puntas){
+      if(p.lado !== lado) continue;
+      const sep = Math.abs(p.t - t) * (lado === 'izquierda' || lado === 'derecha' ? MUNDO.h : MUNDO.w);
+      if(sep < (p.largo + largo)/2 + 24){ valido = false; break; }
+    }
+    if(!valido) continue;
+    const nueva = { tipo:'espina', lado, t, largo, prof, fase: aleatorio(0, 6.28) };
+    const v = geometriaPunta(nueva);
+    const centroX = (v[0][0]+v[1][0]+v[2][0])/3, centroY = (v[0][1]+v[1][1]+v[2][1])/3;
+    if(distancia(centroX, centroY, BOLA.x, BOLA.y) < BOLA.r + prof + 40) continue;
+    puntas.push(nueva);
+    return;
+  }
+}
+function crearMina(){
+  if(minas.length >= MAX_MINAS) return;
+  for(let intento = 0; intento < 25; intento++){
+    const r = aleatorio(13, 21);
+    const x = aleatorio(r+10, MUNDO.w - r - 10);
+    const y = aleatorio(r+10, MUNDO.h - r - 10);
+    if(distancia(x, y, BOLA.x, BOLA.y) < BOLA.r + r + 110) continue; // lejos de la bola
+    // desde el nivel 3 algunas minas RASTREAN a la bola
+    const persigue = JUEGO.nivel >= 3 && Math.random() < 0.45;
+    const a = aleatorio(0, Math.PI*2), v = aleatorio(38, 78);
+    minas.push({ tipo:'mina', persigue, x, y, r: persigue ? r*1.12 : r,
+                vx: Math.cos(a)*v, vy: Math.sin(a)*v, giro: aleatorio(-2,2), ang: 0, fase: aleatorio(0,6.28) });
+    return;
+  }
+}
+
+/* Anillos: se generan con hueco acorde al tamaño de la bola (siempre pasables   si apuntas bien) y se estrechan con el nivel. */
+function crearAnillo(){
+  if(anillos.length >= MAX_ANILLOS) return;
+  for(let intento = 0; intento < 30; intento++){
+    const rHueco = limitar(BOLA.r*1.2 + 16 - Math.max(0, JUEGO.nivel-2)*1.1, 28, 74);
+    const margen = rHueco + 26;
+    const x = aleatorio(margen, MUNDO.w-margen);
+    const y = aleatorio(margen, MUNDO.h-margen);
+    if(distancia(x, y, BOLA.x, BOLA.y) < BOLA.r + rHueco + 70) continue;
+    anillos.push({ x, y, rHueco, giro: aleatorio(0,6.28), t: 0, brilla: 0 });
+    return;
+  }
+}
+
+/* --------------------------------------------------------------- EFECTOS */
+function explotar(x, y, cantidad, color){
+  for(let i = 0; i < cantidad; i++){
+    const a = aleatorio(0, Math.PI*2), v = aleatorio(40, 320);
+    particulas.push({ x, y, vx: Math.cos(a)*v, vy: Math.sin(a)*v,
+      r: aleatorio(1.6, 5), vida: aleatorio(.4, 1.1), tvida: 1, color });
+  }
+  if(particulas.length > 500) particulas.splice(0, particulas.length - 500);
+}
+function chispas(x, y, cantidad, colorBase){
+  for(let i = 0; i < cantidad; i++){
+    const a = aleatorio(0, Math.PI*2), v = aleatorio(30, 160);
+    particulas.push({ x, y, vx: Math.cos(a)*v, vy: Math.sin(a)*v,
+      r: aleatorio(1, 3.2), vida: aleatorio(.25, .6), tvida: 1, color: colorBase });
+  }
+}
+function texto(x, y, txt, color, grande){
+  textos.push({ x, y, txt, color: color || '#ffffff', vida: 1.2, grande: !!grande });
+}
+function destello(color, fuerza){
+  JUEGO.destelloColor = color;
+  JUEGO.destello = Math.max(JUEGO.destello, fuerza === undefined ? 0.5 : fuerza);
+}
+
+/* --------------------------------------------------------------- MECÁNICA */
+function multiplicador(){ return 1 + Math.floor((BOLA.r - R_MIN) / 8); } // ×1 … ×7
+function velocidadActual(){ return Math.hypot(BOLA.vx, BOLA.vy); }
+function comboActual(){ return JUEGO.combo; }
+
+function acelerar(extra){
+  const v = velocidadActual();
+  if(v < 1) return;
+  const nv = Math.min(V_MAX, v + extra);
+  const k = nv / v;
+  BOLA.vx *= k; BOLA.vy *= k;
+}
+function multiplicarVelocidad(k){
+  const v = Math.min(V_MAX, velocidadActual() * k);
+  const a = Math.atan2(BOLA.vy, BOLA.vx);
+  BOLA.vx = Math.cos(a) * v; BOLA.vy = Math.sin(a) * v;
+}
+
+/* Cualquier acción del jugador reactiva lapenalización por pereza */
+function marcarActividad(){
+  const estaba = JUEGO.pereza;
+  JUEGO.inaccion = 0;
+  JUEGO.pereza = false;
+  JUEGO.avisado = false;
+  if(estaba) texto(BOLA.x, BOLA.y - BOLA.r - 16, '¡ACTIVO!', '#ffd166', true);
+}
+
+/* Suma puntos aplicando tamaño × combo y LAZANDO el combo +1 */
+function sumarPuntos(base, etiqueta){
+  const c = comboActual();
+  const total = Math.round(base * multiplicador() * c);
+  JUEGO.puntos += total;
+  subirCombo();
+  if(JUEGO.combo > JUEGO.mejorCombo) JUEGO.mejorCombo = JUEGO.combo;
+  marcarActividad();
+  return total;
+}
+function subirCombo(){
+  const antes = JUEGO.combo;
+  JUEGO.combo = Math.min(COMBO_MAX, JUEGO.combo + 1);
+  JUEGO.comboT = COMBO_T;
+  if(JUEGO.combo > antes) Sonido.combo(JUEGO.combo);
+}
+function perderCombo(motivo){
+  if(JUEGO.combo > 1){
+    texto(BOLA.x, BOLA.y - BOLA.r - 14, 'COMBO CAÍDO', '#ff8fa3');
+ }
+  JUEGO.combo = 1;
+  JUEGO.comboT = 0;
+}
+
+/* CRECER: la acción de riesgo (más grande = más puntos, peor maneuverabilidad) */
+function crecer(){
+  const ahora = performance.now() / 1000;
+  if(ahora - ultimaCrecida < 0.14) return;  // antirreboteo
+  ultimaCrecida = ahora;
+
+  const multAntes = multiplicador();
+  const yaMax = BOLA.r >= R_MAX;
+  BOLA.r = Math.min(R_MAX, BOLA.r + 2.2);
+  acelerar(6);
+
+  const ganado = sumarPuntos(5, '');
+  chispas(BOLA.x, BOLA.y, 8, 'rgba(140,240,255,.9)');
+  texto(BOLA.x + aleatorio(-10,10), BOLA.y - BOLA.r - 10, '+' + ganado, 'rgba(180,245,255,.95)');
+  Sonido.crecer(Math.round(BOLA.r));
+
+  if(!yaMax && BOLA.r >= R_MAX){
+    texto(BOLA.x, BOLA.y - BOLA.r - 12, '¡TAMAÑO MÁXIMO!', '#ffd166', true);
+    destello('255,209,102', 0.35);
+    Sonido.maximo();
+  }
+  const multAhora = multiplicador();
+  if(multAhora > multAntes){
+    texto(BOLA.x, BOLA.y - BOLA.r - 12, '¡MULTIPLICADOR ×' + multAhora + '!', '#ff5ea8', true);
+  }
+}
+
+/* DIRECCIÓN de entrada → vector normalizado */
+function direccionEntrada(){
+  let kx = 0, ky = 0;
+  const K = ENTRADA.teclas;
+  if(K.has('ArrowLeft')  || K.has('KeyA')) kx -= 1;
+  if(K.has('ArrowRight') || K.has('KeyD')) kx += 1;
+  if(K.has('ArrowUp')    || K.has('KeyW')) ky -= 1;
+  if(K.has('ArrowDown')  || K.has('KeyS')) ky += 1;
+  const mag = Math.hypot(kx, ky);
+  if(mag > 0) return { x: kx/mag, y: ky/mag };
+  if(PUNTERO.activo){
+    const dx = PUNTERO.x - BOLA.x, dy = PUNTERO.y - BOLA.y;
+    const d = Math.hypot(dx, dy);
+    if(d > 8) return { x: dx/d, y: dy/d };
+  }
+  const v = velocidadActual();
+  if(v > 1) return { x: BOLA.vx/v, y: BOLA.vy/v };
+  return null;
+}
+
+/* DASH: impulso rápido con enfriamiento, suma combo */
+function dash(){
+  if(JUEGO.estado !== 'jugando' || JUEGO.dashCD > 0) return;
+  const d = direccionEntrada();
+  if(!d) return;
+  const v = Math.min(V_DASH, Math.max(velocidadActual()*1.4, 660));
+  BOLA.vx = d.x*v; BOLA.vy = d.y*v;
+  JUEGO.dashT = 0.22;
+  JUEGO.dashCD = DASH_CD;
+  const g = sumarPuntos(30, 'dash');
+  texto(BOLA.x, BOLA.y - BOLA.r - 18, '¡DASH +' + g + '!', '#5ef2ff');
+  chispas(BOLA.x, BOLA.y, 16, 'rgba(94,242,255,1)');
+  JUEGO.sacudida = Math.max(JUEGO.sacudida, 6);
+  Sonido.dash();
+}
+
+/* SUPER PULSO: onda que borra minas cercanas y daña al Guardián */
+function pulso(){
+  if(JUEGO.estado !== 'jugando') return;
+  if(JUEGO.carga < CARGA_PULSO){
+    texto(BOLA.x, BOLA.y - BOLA.r - 16, 'FALTA CARGA', '#ff8fa3');
+    Sonido.error();
+    return;
+  }
+  JUEGO.carga -= CARGA_PULSO;
+  ondas.push({ x: BOLA.x, y: BOLA.y, r: 20, vida: .5, color: 'rgba(94,242,255,1)' });
+  destello('94,242,255', 0.42);
+  JUEGO.sacudida = Math.max(JUEGO.sacudida, 14);
+  Sonido.pulso();
+  marcarActividad();
+
+  let n = 0;
+  for(let i = minas.length - 1; i >= 0; i--){
+    const m = minas[i];
+    if(distancia(BOLA.x, BOLA.y, m.x, m.y) < RADIO_PULSO + m.r){
+      explotar(m.x, m.y, 20, m.persigue ? 'rgba(186,140,255,1)' : 'rgba(255,140,80,1)');
+      minas.splice(i, 1);
+      n++;
+    }
+  }
+  if(n > 0){
+    const g = sumarPuntos(90*n, 'minas');
+    texto(BOLA.x, BOLA.y + BOLA.r + 22, n + ' MINAS  +' + g, '#ffd166', true);
+  }
+  if(jefe && distancia(BOLA.x, BOLA.y, jefe.x, jefe.y) < RADIO_PULSO + jefe.r) golpearJefe(2);
+}
+
+/* ------------------------------- MINI-JEFE: EL GUARDIÁN (cada 5 niveles) */
+function crearJefe(){
+  const r = 26 + Math.min(14, JUEGO.nivel*0.6);
+  let x, y;
+  if(Math.random() < .5){ x = Math.random() < .5 ? r + 10 : MUNDO.w - r - 10; y = aleatorio(r + 40, MUNDO.h - r - 40); }
+  else                  { y = Math.random() < .5 ? r + 10 : MUNDO.h - r - 10; x = aleatorio(r + 40, MUNDO.w - r - 40); }
+  const vidaMax = 2 + Math.floor(JUEGO.nivel / 5);
+  jefe = { x, y, r, vx: aleatorio(-70,70), vy: aleatorio(-70,70), ang: 0,
+           vida: vidaMax, vidaMax, estado: 'vaga', t: aleatorio(1.0, 1.8),
+           dx: 0, dy: 0, golpeado: 0 };
+  texto(MUNDO.w/2, MUNDO.h/2, '¡GUARDIÁN!', '#ff5ea8', true);
+  destello('255,94,168', 0.4);
+  Sonido.jefeVuela();
+}
+function golpearJefe(n){
+  if(!jefe) return;
+  jefe.vida -= n;
+  jefe.golpeado = 0.25;
+  JUEGO.sacudida = Math.max(JUEGO.sacudida, 8);
+  chispas(jefe.x, jefe.y, 18, 'rgba(255,209,102,1)');
+  Sonido.jefeGolpe();
+  if(jefe.vida <= 0) destruirJefe(); else texto(jefe.x, jefe.y - jefe.r - 14, '-' + n, '#ffd166', true);
+}
+function destruirJefe(){
+  const g = sumarPuntos(1500, 'jefe');
+  texto(jefe.x, jefe.y - jefe.r - 26, '¡GUARDIÁN DERROTADO! +' + g, '#ffd166', true);
+  explotar(jefe.x, jefe.y, 60, 'rgba(255,94,168,1)');
+  explotar(jefe.x, jefe.y, 40, 'rgba(255,209,102,1)');
+  JUEGO.sacudida = Math.max(JUEGO.sacudida, 24);
+  destello('255,209,102', 0.6);
+  // limpia minas cercanas y regala escudo
+  for(let i = minas.length - 1; i >= 0; i--){
+    if(distancia(jefe.x, jefe.y, minas[i].x, minas[i].y) < 220) minas.splice(i, 1);
+  }
+  BOLA.escudo = true;
+  jefe = null;
+  Sonido.jefeMuerte();
+}
+function actualizarJefe(dt){
+  if(!jefe) return;
+  jefe.t += dt;
+  if(jefe.golpeado > 0) jefe.golpeado -= dt;
+  jefe.ang += dt * (jefe.estado === 'embiste' ? 7 : 1.6);
+
+  if(jefe.estado === 'vaga'){
+    // deambula corrigiendo su rumbo lentamente
+    const a = Math.atan2(jefe.vy, jefe.vx);
+    jefe.vx += Math.cos(a + 1.2)*55*dt;
+    jefe.vy += Math.sin(a + 1.2)*55*dt;
+    const v = Math.hypot(jefe.vx, jefe.vy);
+    if(v > 130){ jefe.vx *= 130/v; jefe.vy *= 130/v; }
+    if(jefe.t > 1.6){ jefe.estado = 'avisa'; jefe.t = 0; }
+  }
+  else if(jefe.estado === 'avisa'){
+    // telegrafía: fija la dirección apuntando a donde estará la bola
+    const px = BOLA.x + BOLA.vx*0.28, py = BOLA.y + BOLA.vy*0.28;
+    const dx = px - jefe.x, dy = py - jefe.y, d = Math.hypot(dx, dy) || 1;
+    jefe.dx = dx/d; jefe.dy = dy/d;
+    jefe.vx *= 0.9; jefe.vy *= 0.9;
+    if(jefe.t > 0.85){ jefe.estado = 'embiste'; jefe.t = 0; jefe.vx = jefe.dx*580; jefe.vy = jefe.dy*580; }
+  }
+  else if(jefe.estado === 'embiste'){
+    if(jefe.t > 0.55){ jefe.estado = 'descansa'; jefe.t = 0; jefe.vx *= 0.35; jefe.vy *= 0.35; }
+  }
+  else if(jefe.estado === 'descansa'){
+    jefe.vx *= 0.94; jefe.vy *= 0.94;
+    if(jefe.t > 1.05){ jefe.estado = 'vaga'; jefe.t = 0; }
+  }
+
+  jefe.x += jefe.vx*dt; jefe.y += jefe.vy*dt;
+  if(jefe.x - jefe.r < 0){ jefe.x = jefe.r; jefe.vx = Math.abs(jefe.vx); jefe.estado = 'descansa'; jefe.t = 0; }
+  if(jefe.x + jefe.r > MUNDO.w){ jefe.x = MUNDO.w - jefe.r; jefe.vx = -Math.abs(jefe.vx); jefe.estado = 'descansa'; jefe.t = 0; }
+  if(jefe.y - jefe.r < 0){ jefe.y = jefe.r; jefe.vy = Math.abs(jefe.vy); jefe.estado = 'descansa'; jefe.t = 0; }
+  if(jefe.y + jefe.r > MUNDO.h){ jefe.y = MUNDO.h - jefe.r; jefe.vy = -Math.abs(jefe.vy); jefe.estado = 'descansa'; jefe.t = 0; }
+}
+
+/* --------------------------------------------------------------- NIVELES */
+function subirNivel(){
+  JUEGO.nivel++;
+  multiplicarVelocidad(1.07);
+  if(JUEGO.nivel % 2 === 0){ if(puntas.length < MAX_PUNTAS) crearPunta(); else if(minas.length < MAX_MINAS) crearMina(); }
+  else                      { if(minas.length  < MAX_MINAS) crearMina(); else if(puntas.length < MAX_PUNTAS) crearPunta(); }
+
+  texto(MUNDO.w/2, MUNDO.h/2, '¡NIVEL ' + JUEGO.nivel + '!', '#ffd166', true);
+  Sonido.nivel();
+  JUEGO.sacudida = Math.max(JUEGO.sacudida, 9);
+  destello('255,209,102', 0.3);
+  explotar(BOLA.x, BOLA.y, 26, 'rgba(255,209,102,1)');
+  if(JUEGO.nivel % 5 === 0 && !jefe) crearJefe();
+}
+
+/* --------------------------------------------------------------- DAÑO / MUERTE */
+function perderEscudo(x, y){
+  BOLA.escudo = false;
+  JUEGO.invulnerable = 0.9;
+  Sonido.escudo();
+  explotar(x, y, 26, 'rgba(94,242,255,1)');
+  destello('255,255,255', 0.4);
+  texto(BOLA.x, BOLA.y - BOLA.r - 10, '¡ESCUDO ROTO!', '#5ef2ff');
+  perderCombo('escudo');
+  const a = Math.atan2(BOLA.vy, BOLA.vx) + aleatorio(0.9, 2.3) * (Math.random() < .5 ? -1 : 1);
+  const v = Math.min(V_MAX, velocidadActual());
+  BOLA.vx = Math.cos(a)*v; BOLA.vy = Math.sin(a)*v;
+}
+function morir(){
+  JUEGO.estado = 'fin';
+  JUEGO.sacudida = 20;
+  destello('255,94,168', 0.7);
+  Sonido.muerte();
+  Sonido.detenerMusica();
+  explotar(BOLA.x, BOLA.y, 70, 'rgba(255,94,168,1)');
+  explotar(BOLA.x, BOLA.y, 40, 'rgba(255,255,255,1)');
+
+  const final = Math.max(0, Math.floor(JUEGO.puntos));
+  const nuevoRecord = final > JUEGO.mejor;
+  if(nuevoRecord){ JUEGO.mejor = final; guardarMejor(); }
+  if(JUEGO.mejorCombo > 1) guardarMejor();
+
+  document.getElementById('txtFinTitulo').textContent  = nuevoRecord ? '¡NUEVO RÉCORD!' : '¡FIN DE PARTIDA!';
+  document.getElementById('txtFinPuntos').textContent  = final;
+  document.getElementById('txtFinNivel').textContent   = JUEGO.nivel;
+  document.getElementById('txtFinCombo').textContent   = '×' + JUEGO.mejorCombo;
+  document.getElementById('txtFinMejor').textContent   = JUEGO.mejor;
+  document.getElementById('txtFinNota').textContent    = 'Tocaste un peligro. Consejo: encadena anillos, esquinas y dashes para subir el combo.';
+  mostrarPanel(panelFinal);
+}
+
+function recogerEstrella(){
+  const g = sumarPuntos(150, 'estrella');
+  BOLA.escudo = true;
+  JUEGO.carga = Math.min(1, JUEGO.carga + 0.3);
+  Sonido.estrella();
+  explotar(estrella.x, estrella.y, 34, 'rgba(255,209,102,1)');
+  destello('255,209,102', 0.3);
+  texto(estrella.x, estrella.y, '+' + g, '#ffd166', true);
+  texto(BOLA.x, BOLA.y - BOLA.r - 10, '¡ESCUDO!', '#5ef2ff');
+  estrella = null;
+  JUEGO.tempEstrella = aleatorio(9, 15);
+}
+function recogerAnillo(a){
+  const g = sumarPuntos(160, 'anillo');
+  JUEGO.carga = Math.min(1, JUEGO.carga + 0.45);
+  JUEGO.sacudida = Math.max(JUEGO.sacudida, 7);
+  destello('94,242,255', 0.25);
+  Sonido.estrella();
+  chispas(a.x, a.y, 26, 'rgba(94,242,255,1)');
+  texto(a.x, a.y, 'ANILLO +' + g, '#5ef2ff', true);
+  texto(a.x, a.y + 24, '+45% CARGA', '#ffd166');
+  const i = anillos.indexOf(a);
+  if(i >= 0) anillos.splice(i, 1);
+}
+
+/* --------------------------------------------------------------- REINICIO / FLUJO */
+function reiniciar(){
+  JUEGO.puntos = 0; JUEGO.nivel = 1; JUEGO.tiempo = 0;
+  JUEGO.sacudida = 0; JUEGO.destello = 0; JUEGO.invulnerable = 1.2;
+  JUEGO.combo = 1; JUEGO.comboT = 0; JUEGO.carga = 0.34;
+  JUEGO.inaccion = 0; JUEGO.pereza = false; JUEGO.avisado = false;
+  JUEGO.dashT = 0; JUEGO.dashCD = 0; JUEGO.frenoTecla = false;
+  JUEGO.tempEstrella = aleatorio(8, 13); JUEGO.tempAnillo = 1.2;
+
+  BOLA.r = R_MIN;
+  BOLA.x = MUNDO.w/2; BOLA.y = MUNDO.h/2;
+  const ang = aleatorio(-Math.PI, Math.PI);
+  BOLA.vx = Math.cos(ang) * 250; BOLA.vy = Math.sin(ang) * 250;
+  BOLA.escudo = false; BOLA.escalaX = 1; BOLA.escalaY = 1; BOLA.estela.length = 0;
+
+  puntas.length = 0; minas.length = 0; anillos.length = 0;
+  ondas.length = 0; particulas.length = 0; textos.length = 0;
+  estrella = null; jefe = null;
+  ENTRADA.teclas.clear();
+  PUNTERO.activo = false; PUNTERO.movido = false; PUNTERO.id = -1;
+
+  crearPunta(); crearPunta();   // dos espinas iniciales
+  crearAnillo();
+}
+
+function iniciar(){
+  Sonido.iniciar();
+  reiniciar();
+  JUEGO.estado = 'jugando';
+  mostrarPanel(null);
+}
+function alternarPausa(){
+  if(JUEGO.estado === 'jugando'){ JUEGO.estado = 'pausa'; Sonido.detenerMusica(); mostrarPanel(panelPausa); }
+  else if(JUEGO.estado === 'pausa'){ JUEGO.estado = 'jugando'; Sonido.iniciar(); mostrarPanel(null); }
+}
+function mostrarPanel(cual){
+  [panelInicio, panelPausa, panelFinal].forEach(p => p.classList.toggle('oculto', p !== cual));
+}
+
+/* --------------------------------------------------------------- ACTUALIZACIÓN */
+function rebotarEn(lado, x, y){
+  const c = comboActual();
+  const total = Math.round(10 * multiplicador() * c);
+  JUEGO.puntos += total;
+  JUEGO.comboT = COMBO_T;
+  marcarActividad();
+  Sonido.rebotar(c);
+  chispas(x, y, 10, 'rgba(94,242,255,.9)');
+  JUEGO.carga = Math.min(1, JUEGO.carga + 0.02);
+
+  // Aplastamiento perpendicular al muro golpeado
+  if(lado === 'izquierda' || lado === 'derecha'){ BOLA.escalaX = 0.68; BOLA.escalaY = 1.24; }
+  else                                          { BOLA.escalaX = 1.24; BOLA.escalaY = 0.68; }
+
+  // Rebote en esquina: bonificación de skill → sube combo
+  const esquina = (lado === 'izquierda' || lado === 'derecha')
+                ? (y < 82 || y > MUNDO.h - 82)
+                : (x < 82 || x > MUNDO.w - 82);
+  if(esquina && velocidadActual() > 180){
+    subirCombo();
+    if(JUEGO.combo > JUEGO.mejorCombo) JUEGO.mejorCombo = JUEGO.combo;
+    JUEGO.carga = Math.min(1, JUEGO.carga + 0.12);
+    const g = Math.round(60 * multiplicador() * comboActual());
+    JUEGO.puntos += g;
+    texto(x, y, '¡ESQUINA +' + g + '!', '#ffd166');
+    JUEGO.sacudida = Math.max(JUEGO.sacudida, 5);
+    chispas(x, y, 16, 'rgba(255,209,102,1)');
+    Sonido.esquina();
+  }
+}
+
+/* Entrada → fuerzas (empuje + imanta) y rozamiento */
+function aplicarEntrada(h){
+  if(JUEGO.dashT > 0) return;                       // durante el dash no haycontrol
+  const K = ENTRADA.teclas;
+  let kx = 0, ky = 0;
+  if(K.has('ArrowLeft')  || K.has('KeyA')) kx -= 1;
+  if(K.has('ArrowRight') || K.has('KeyD')) kx += 1;
+  if(K.has('ArrowUp')    || K.has('KeyW')) ky -= 1;
+  if(K.has('ArrowDown')  || K.has('KeyS')) ky += 1;
+  const mag = Math.hypot(kx, ky);
+  if(mag > 0){
+    BOLA.vx += (kx/mag) * FUERZA_TECLADO * h;
+    BOLA.vy += (ky/mag) * FUERZA_TECLADO * h;
+  }
+  if(PUNTERO.activo){
+    const dx = PUNTERO.x - BOLA.x, dy = PUNTERO.y - BOLA.y;
+    const d = Math.hypot(dx, dy);
+    if(d > 2){
+      const freno = JUEGO.frenoTecla || K.has('ShiftLeft') || K.has('ShiftRight');
+      const k = freno ? K_IMAN_FRENO : K_IMAN;
+      const f = Math.min(d, 170) * k;
+      BOLA.vx += (dx/d) * f * h;
+      BOLA.vy += (dy/d) * f * h;
+    }
+  }
+}
+
+function actualizar(dt, soloEfectos){
+  JUEGO.tiempo += dt;
+  if(JUEGO.invulnerable > 0) JUEGO.invulnerable -= dt;
+  if(JUEGO.sacudida > 0)     JUEGO.sacudida = Math.max(0, JUEGO.sacudida - dt * 42);
+  if(JUEGO.destello > 0)     JUEGO.destello = Math.max(0, JUEGO.destello - dt * 2.6);
+  if(JUEGO.dashCD > 0)       JUEGO.dashCD = Math.max(0, JUEGO.dashCD - dt);
+  if(JUEGO.dashT > 0)        JUEGO.dashT = Math.max(0, JUEGO.dashT - dt);
+
+  if(soloEfectos){ actualizarEfectos(dt); return; }
+
+  /* ---- Combo: se mantiene rebotando, pero solo lo AUMENTAN las skills ---- */
+  if(JUEGO.comboT > 0){
+    JUEGO.comboT -= dt;
+    if(JUEGO.comboT <= 0) perderCombo();
+  }
+
+  /* ---- Pereza: quedarse parado cuesta puntos y tamaño ---- */
+  JUEGO.inaccion += dt;
+  if(!JUEGO.pereza && JUEGO.inaccion > PEREZA_T){
+    JUEGO.pereza = true;
+    texto(BOLA.x, BOLA.y - BOLA.r - 20, '¡NO TE QUEDES PARADO!', '#ff8fa3', true);
+    perderCombo();
+  } else if(!JUEGO.pereza && !JUEGO.avisado && JUEGO.inaccion > PEREZA_T - 1.2){
+    JUEGO.avisado = true;
+    texto(BOLA.x, BOLA.y - BOLA.r - 20, '¡ACTÍVATE!', '#ffd166');
+  }
+  if(JUEGO.pereza){
+    JUEGO.puntos = Math.max(0, JUEGO.puntos - 26 * dt * multiplicador());
+    BOLA.r = Math.max(R_MIN, BOLA.r - 3.2 * dt);
+    if(Math.random() < dt*14) chispas(BOLA.x + aleatorio(-BOLA.r,BOLA.r), BOLA.y + aleatorio(-BOLA.r,BOLA.r), 1, 'rgba(255,120,140,.8)');
+    if(JUEGO.tiempo % 1 < dt) destello('255,94,168', 0.12);
+  }
+
+  /* ---- Movimiento con subpasos: nada atraviesa paredes ni peligros ---- */
+  const vel = velocidadActual();
+  const subpasos = Math.max(1, Math.min(8, Math.ceil(vel * dt / (BOLA.r * 0.55))));
+  const h = dt / subpasos;
+  const freno = JUEGO.frenoTecla || ENTRADA.teclas.has('ShiftLeft') || ENTRADA.teclas.has('ShiftRight');
+  const rozamiento = JUEGO.dashT > 0 ? 0 : (freno ? 6.2 : 1.5);
+
+  for(let s = 0; s < subpasos; s++){
+    aplicarEntrada(h);
+    if(rozamiento > 0){
+      BOLA.vx -= BOLA.vx * rozamiento * h;
+      BOLA.vy -= BOLA.vy * rozamiento * h;
+    }
+    const vmax = JUEGO.dashT > 0 ? V_DASH : V_MAX;
+    const v = velocidadActual();
+    if(v > vmax){ BOLA.vx *= vmax/v; BOLA.vy *= vmax/v; }
+
+    BOLA.x += BOLA.vx * h;
+    BOLA.y += BOLA.vy * h;
+
+    // Rebotes contra las paredes
+    if(BOLA.x - BOLA.r < 0)      { BOLA.x = BOLA.r;      BOLA.vx =  Math.abs(BOLA.vx); rebotarEn('izquierda', 0, BOLA.y); }
+    else if(BOLA.x + BOLA.r > MUNDO.w){ BOLA.x = MUNDO.w - BOLA.r; BOLA.vx = -Math.abs(BOLA.vx); rebotarEn('derecha', MUNDO.w, BOLA.y); }
+    if(BOLA.y - BOLA.r < 0)      { BOLA.y = BOLA.r;      BOLA.vy =  Math.abs(BOLA.vy); rebotarEn('arriba', BOLA.x, 0); }
+    else if(BOLA.y + BOLA.r > MUNDO.h){ BOLA.y = MUNDO.h - BOLA.r; BOLA.vy = -Math.abs(BOLA.vy); rebotarEn('abajo', BOLA.x, MUNDO.h); }
+
+    // Peligros (desactivados mientras dure la invulnerabilidad)
+    if(JUEGO.invulnerable <= 0){
+      let tocado = null, tx = BOLA.x, ty = BOLA.y;
+
+      for(const p of puntas){
+        if(bolaTocaTriangulo(BOLA.x, BOLA.y, BOLA.r, geometriaPunta(p))){ tocado = p; break; }
+      }
+      if(!tocado){
+        for(const m of minas){
+          if(distancia(BOLA.x, BOLA.y, m.x, m.y) < BOLA.r + m.r){ tocado = m; tx = m.x; ty = m.y; break; }
+        }
+      }
+      if(!tocado && jefe && distancia(BOLA.x, BOLA.y, jefe.x, jefe.y) < BOLA.r + jefe.r){ tocado = jefe; tx = jefe.x; ty = jefe.y; }
+
+      if(tocado){
+        if(BOLA.escudo){
+          perderEscudo(tx, ty);
+          if(tocado === jefe){                     // el guardián retrocede
+            const a = Math.atan2(jefe.vy - BOLA.vy, jefe.vx - BOLA.vx);
+            jefe.vx = Math.cos(a)*280; jefe.vy = Math.sin(a)*280;
+            jefe.estado = 'descansa'; jefe.t = 0;
+          } else if(tocado.tipo === 'mina'){        // la mina impactada explota
+            minas = minas.filter(mm => mm !== tocado);
+            const g = sumarPuntos(80, 'mina');
+            texto(tx, ty, '+' + g, '#ffd166');
+            explotar(tx, ty, 22, 'rgba(255,140,80,1)');
+            JUEGO.sacudida = Math.max(JUEGO.sacudida, 9);
+          }
+        }else{
+          BOLA.x = tx; BOLA.y = ty;
+          morir();
+          return;
+        }
+      }
+    }
+    if(JUEGO.estado !== 'jugando') return;
+  }
+
+  /* ---- Minas: deriva, rebote en paredes y rastreo ---- */
+  for(const m of minas){
+    if(m.persigue){
+      const a = Math.atan2(BOLA.y - m.y, BOLA.x - m.x);
+      const cur = Math.atan2(m.vy, m.vx);
+      let d = ((a - cur + Math.PI*3) % (Math.PI*2)) - Math.PI;
+      const giro = limitar(d, -2.4*dt, 2.4*dt);
+      const nv = limitar(Math.hypot(m.vx, m.vy) + 34*dt, 40, 98);
+      m.vx = Math.cos(cur+giro)*nv; m.vy = Math.sin(cur+giro)*nv;
+    }
+    m.x += m.vx * dt; m.y += m.vy * dt; m.ang += m.giro * dt;
+    if(m.x - m.r < 0)       { m.x = m.r;       m.vx =  Math.abs(m.vx); }
+    if(m.x + m.r > MUNDO.w) { m.x = MUNDO.w-m.r; m.vx = -Math.abs(m.vx); }
+    if(m.y - m.r < 0)       { m.y = m.r;       m.vy =  Math.abs(m.vy); }
+    if(m.y + m.r > MUNDO.h) { m.y = MUNDO.h-m.r; m.vy = -Math.abs(m.vy); }
+  }
+
+  /* ---- Guardián ---- */
+  actualizarJefe(dt);
+
+  /* ---- Anillos: bonus por precisión ---- */
+  for(let i = anillos.length - 1; i >= 0; i--){
+    const a = anillos[i];
+    a.t += dt; a.giro += dt * 1.3;
+    if(distancia(BOLA.x, BOLA.y, a.x, a.y) < a.rHueco - BOLA.r * 0.35) recogerAnillo(a);
+  }
+  if(anillos.length < Math.min(MAX_ANILLOS, 1 + Math.floor(JUEGO.nivel/2))){
+    JUEGO.tempAnillo -= dt;
+    if(JUEGO.tempAnillo <= 0){ crearAnillo(); JUEGO.tempAnillo = aleatorio(1.4, 2.8); }
+  }
+
+  /* ---- Estrella (recogible con escudo) ---- */
+  if(!estrella){
+    JUEGO.tempEstrella -= dt;
+    if(JUEGO.tempEstrella <= 0){
+      const r = 13;
+      estrella = { x: aleatorio(r+20, MUNDO.w-r-20), y: aleatorio(r+20, MUNDO.h-r-20), r, giro: 0 };
+    }
+  }else{
+    estrella.giro += dt * 2.2;
+    if(distancia(BOLA.x, BOLA.y, estrella.x, estrella.y) < BOLA.r + estrella.r) recogerEstrella();
+  }
+
+  /* ---- Nivel ---- */
+  const nivelObjetivo = Math.floor(JUEGO.puntos / PUNTOS_NIVEL) + 1;
+  while(JUEGO.nivel < nivelObjetivo) subirNivel();
+
+  /* ---- Estela y recuperación del aplastamiento ---- */
+  BOLA.estela.unshift({ x: BOLA.x, y: BOLA.y, r: BOLA.r });
+  if(BOLA.estela.length > 13) BOLA.estela.pop();
+  const k = Math.min(1, dt * 11);
+  BOLA.escalaX += (1 - BOLA.escalaX) * k;
+  BOLA.escalaY += (1 - BOLA.escalaY) * k;
+
+  /* ---- Partículas, textos y ondas ---- */
+  actualizarEfectos(dt);
+}
+
+function actualizarEfectos(dt){
+  for(let i = particulas.length - 1; i >= 0; i--){
+    const p = particulas[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= 0.94; p.vy *= 0.94; p.vida -= dt;
+    if(p.vida <= 0) particulas.splice(i, 1);
+  }
+  for(let i = textos.length - 1; i >= 0; i--){
+    const t = textos[i];
+    t.y -= 34 * dt; t.vida -= dt;
+    if(t.vida <= 0) textos.splice(i, 1);
+  }
+  for(let i = ondas.length - 1; i >= 0; i--){
+    const o = ondas[i];
+    o.vida -= dt; o.r =20 + (RADIO_PULSO - 20) * (1 - o.vida / 0.5);
+    if(o.vida <= 0) ondas.splice(i, 1);
+  }
+  for(const b of boquinos){
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    if(b.x < -10) b.x = MUNDO.w + 10; if(b.x > MUNDO.w + 10) b.x = -10;
+    if(b.y < -10) b.y = MUNDO.h + 10; if(b.y > MUNDO.h + 10) b.y = -10;
+  }
+}
+
+/* --------------------------------------------------------------- DIBUJADO */
+function rectRedondeado(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y,   x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x,   y+h, r);
+  ctx.arcTo(x,   y+h, x,   y,   r);
+  ctx.arcTo(x,   y,   x+w, y,   r);
+  ctx.closePath();
+}
+function estrella5(cx, cy, R, r, giro){
+  ctx.beginPath();
+  for(let i = 0; i < 10; i++){
+    const rad = (i % 2 === 0) ? R : r;
+    const a = giro + i * Math.PI / 5 - Math.PI/2;
+    const x = cx + Math.cos(a)*rad, y = cy + Math.sin(a)*rad;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+function dibujarFondo(){
+  const hue = (JUEGO.nivel * 34 + JUEGO.tiempo * 5) % 360;
+  const g = ctx.createLinearGradient(0, 0, MUNDO.w, MUNDO.h);
+  g.addColorStop(0, 'hsl(' + hue + ',45%,10%)');
+  g.addColorStop(.5, 'hsl(' + ((hue+40)%360) + ',40%,7%)');
+  g.addColorStop(1, 'hsl(' + ((hue+90)%360) + ',45%,9%)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, MUNDO.w, MUNDO.h);
+
+  ctx.strokeStyle = 'hsla(' + hue + ',70%,70%,.06)';
+  ctx.lineWidth = 1;
+  const paso = 46, off = (JUEGO.tiempo * 14) % paso;
+  ctx.beginPath();
+  for(let x = -off; x <= MUNDO.w; x += paso){ ctx.moveTo(x, 0); ctx.lineTo(x, MUNDO.h); }
+  for(let y = -off; y <= MUNDO.h; y += paso){ ctx.moveTo(0, y); ctx.lineTo(MUNDO.w, y); }
+  ctx.stroke();
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for(const b of boquinos){
+    ctx.fillStyle = 'hsla(' + hue + ',80%,70%,' + b.a + ')';
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function dibujarArena(){
+  ctx.save();
+  const alarma = JUEGO.pereza ? (0.45 + 0.4*Math.sin(JUEGO.tiempo*9)) : (JUEGO.inaccion > PEREZA_T - 1.2 ? 0.3 + 0.3*Math.sin(JUEGO.tiempo*7) : 0.5);
+  ctx.strokeStyle = 'rgba(' + (JUEGO.pereza ? '255,90,120,' : '94,242,255,') + alarma + ')';
+  ctx.lineWidth = 3 + (JUEGO.pereza ? 2 : 0);
+  ctx.shadowColor = JUEGO.pereza ? 'rgba(255,60,100,.9)' : 'rgba(94,242,255,.8)';
+  ctx.shadowBlur = 18;
+  rectRedondeado(2, 2, MUNDO.w-4, MUNDO.h-4, 18);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function dibujarPuntas(){
+  for(const p of puntas){
+    const v = geometriaPunta(p);
+    const brillo = 0.6 + 0.4 * Math.sin(JUEGO.tiempo * 3 + p.fase);
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,80,110,' + brillo + ')';
+    ctx.shadowBlur = 14;
+    const g = ctx.createLinearGradient(v[0][0], v[0][1], v[2][0], v[2][1]);
+    g.addColorStop(0, '#ff9f43');
+    g.addColorStop(1, '#ff2e63');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(v[0][0], v[0][1]); ctx.lineTo(v[1][0], v[1][1]); ctx.lineTo(v[2][0], v[2][1]);
+    ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,.55)';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.5 + 0.5*brillo) + ')';
+    ctx.beginPath(); ctx.arc(v[2][0], v[2][1], 2.6, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function dibujarMinas(){
+  for(const m of minas){
+    const pulso = 1 + 0.12 * Math.sin(JUEGO.tiempo * 5 + m.fase);
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(m.ang);
+    if(m.persigue){
+      // rastreadora: violeta con anillo de rastreo
+      ctx.strokeStyle = 'rgba(186,140,255,.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 6]);
+      ctx.lineDashOffset = -JUEGO.tiempo * 26;
+      ctx.beginPath(); ctx.arc(0, 0, m.r * 1.9 * pulso, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.shadowColor = 'rgba(186,140,255,.95)';
+    }else{
+      ctx.shadowColor = 'rgba(255,120,60,.9)';
+    }
+    ctx.shadowBlur = 16;
+    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, m.r * pulso);
+    if(m.persigue){ g.addColorStop(0, '#f0e6ff'); g.addColorStop(.55, '#b78cff'); g.addColorStop(1, '#5a2ea8'); }
+    else          { g.addColorStop(0, '#ffe29a'); g.addColorStop(.6, '#ff7b3d'); g.addColorStop(1, '#c62b48'); }
+    ctx.fillStyle = g;
+    estrella5(0, 0, m.r * 1.5 * pulso, m.r * 0.82 * pulso, 0);
+    ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, m.r * 0.5, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function dibujarAnillos(){
+  for(const a of anillos){
+    const s = 1 + 0.05 * Math.sin(JUEGO.tiempo * 3 + a.giro);
+    ctx.save();
+    ctx.translate(a.x, a.y);
+    // halo del hueco
+    ctx.globalCompositeOperation = 'lighter';
+    const hg = ctx.createRadialGradient(0,0, a.rHueco*0.25, 0,0, a.rHueco*1.1);
+    hg.addColorStop(0, 'rgba(94,242,255,.22)');
+    hg.addColorStop(1, 'rgba(94,242,255,0)');
+    ctx.fillStyle = hg;
+    ctx.beginPath(); ctx.arc(0,0, a.rHueco*1.15, 0, Math.PI*2); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // aro exterior girando
+    ctx.rotate(a.giro);
+    ctx.strokeStyle = 'rgba(94,242,255,.95)';
+    ctx.lineWidth = 5;
+    ctx.setLineDash([16, 12]);
+    ctx.shadowColor = 'rgba(94,242,255,1)';
+    ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(0, 0, a.rHueco + 8, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // umbral de paso    ctx.rotate(-a.giro);
+    ctx.strokeStyle = 'rgba(255,255,255,.35)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 7]);
+    ctx.beginPath(); ctx.arc(0, 0, a.rHueco, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+
+    // flechitas que indican "pasa por aquí"
+    const n = 5;
+    ctx.fillStyle = 'rgba(255,209,102,.8)';
+    for(let i = 0; i < n; i++){
+      const ang = a.giro*1.6 + i * (Math.PI*2/n);
+      const rx = Math.cos(ang) * (a.rHueco - 6), ry = Math.sin(ang) * (a.rHueco - 6) * s;
+      ctx.beginPath(); ctx.arc(rx, ry, 2.2, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function dibujarJefe(){
+  if(!jefe) return;
+  const avisa = jefe.estado === 'avisa';
+  ctx.save();
+  // línea de telegrafía
+  if(avisa){
+    ctx.save();
+    ctx.setLineDash([12, 10]);
+    ctx.lineDashOffset = -JUEGO.tiempo * 90;
+    ctx.strokeStyle = 'rgba(255,94,168,.8)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(jefe.x, jefe.y);
+    ctx.lineTo(jefe.x + jefe.dx * 620, jefe.y + jefe.dy * 620);
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.translate(jefe.x, jefe.y);
+  ctx.rotate(jefe.ang);
+  const s = (jefe.golpeado > 0 ? 1.12 : 1) * (avisa ? 1 + 0.08*Math.sin(JUEGO.tiempo*24) : 1);
+  ctx.scale(s, s);
+  ctx.shadowColor = 'rgba(255,60,120,.95)';
+  ctx.shadowBlur = 26;
+  const g = ctx.createRadialGradient(0, 0, 3, 0, 0, jefe.r);
+  g.addColorStop(0, '#fff0f6');
+  g.addColorStop(.5, '#ff5ea8');
+  g.addColorStop(1, '#7a1240');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  for(let i = 0; i < 6; i++){
+    const a = i * Math.PI/3;
+    const x = Math.cos(a)*jefe.r, y = Math.sin(a)*jefe.r;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = 'rgba(20,4,18,.85)';
+  ctx.beginPath(); ctx.arc(0, 0, jefe.r*0.36, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // barra de vida del jefe
+  const bw = jefe.r*2.4, bx = jefe.x - bw/2, by = jefe.y - jefe.r - 16;
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.5)';
+  ctx.fillRect(bx, by, bw, 6);
+  const pct = Math.max(0, jefe.vida / jefe.vidaMax);
+  ctx.fillStyle = '#ff5ea8'; ctx.shadowColor = '#ff5ea8'; ctx.shadowBlur = 10;
+  ctx.fillRect(bx, by, bw*pct, 6);
+  ctx.restore();
+}
+
+function dibujarOndas(){
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for(const o of ondas){
+    const a = limitar(o.vida/0.5, 0, 1);
+    ctx.globalAlpha = a * 0.85;
+    ctx.strokeStyle = o.color;
+    ctx.lineWidth = 10 * a + 2;
+    ctx.shadowColor = o.color; ctx.shadowBlur = 24;
+    ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI*2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function dibujarEstrella(){
+  if(!estrella) return;
+  const s = 1 + 0.12 * Math.sin(JUEGO.tiempo * 6);
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,209,102,1)';
+  ctx.shadowBlur = 22;
+  ctx.fillStyle = '#ffd166';
+  estrella5(estrella.x, estrella.y, 15 * s, 6.5 * s, estrella.giro);
+  ctx.fill();
+  ctx.restore();
+}
+
+function dibujarBola(){
+  const vel = velocidadActual();
+  const ang = vel > 1 ? Math.atan2(BOLA.vy, BOLA.vx) : 0;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for(let i = BOLA.estela.length - 1; i >= 0; i--){
+    const e = BOLA.estela[i];
+    const a = (1 - i / BOLA.estela.length) * 0.22;
+    ctx.fillStyle = 'rgba(94,242,255,' + a + ')';
+    ctx.beginPath(); ctx.arc(e.x, e.y, BOLA.r * (0.35 + 0.5 * (1 - i/BOLA.estela.length)), 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(BOLA.x, BOLA.y);
+  if(JUEGO.invulnerable > 0 && Math.floor(JUEGO.tiempo * 14) % 2 === 0) ctx.globalAlpha = 0.45;
+
+  // Pulso de carga lista alrededor de la bola
+  if(JUEGO.carga >= CARGA_PULSO){
+    const p = 0.5 + 0.5*Math.sin(JUEGO.tiempo*7);
+    ctx.strokeStyle = 'rgba(255,209,102,' + (0.35 + 0.35*p) + ')';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 9]);
+    ctx.lineDashOffset = -JUEGO.tiempo * 50;
+    ctx.beginPath(); ctx.arc(0, 0, BOLA.r + 15, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  if(BOLA.escudo){
+    ctx.save();
+    ctx.strokeStyle = 'rgba(94,242,255,.9)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([9, 7]);
+    ctx.lineDashOffset = -JUEGO.tiempo * 40;
+    ctx.shadowColor = 'rgba(94,242,255,1)';
+    ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.arc(0, 0, BOLA.r + 9, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.rotate(ang);
+  ctx.scale(BOLA.escalaX, BOLA.escalaY);
+
+  ctx.shadowColor = 'rgba(94,242,255,.85)';
+  ctx.shadowBlur = 26 + BOLA.r * 0.4;
+  const g = ctx.createRadialGradient(-BOLA.r*0.36, -BOLA.r*0.4, BOLA.r*0.14, 0, 0, BOLA.r);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(.38, '#9df6ff');
+  g.addColorStop(1, '#1f6fd0');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, BOLA.r, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = 'rgba(255,255,255,.75)';
+  ctx.beginPath();
+  ctx.ellipse(-BOLA.r*0.34, -BOLA.r*0.42, BOLA.r*0.22, BOLA.r*0.13, -0.6, 0, Math.PI*2);
+  ctx.fill();
+
+  // Cara kawaii que mira hacia donde te mueves
+  const ojoX = BOLA.r * 0.36, ojoY = BOLA.r * 0.3, ojoR = Math.max(2.6, BOLA.r * 0.2);
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(ojoX, -ojoY, ojoR, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(ojoX,  ojoY, ojoR, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#0b1020';
+  const pup = ojoR * 0.46;
+  ctx.beginPath(); ctx.arc(ojoX + ojoR*0.34, -ojoY, pup, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(ojoX + ojoR*0.34,  ojoY, pup, 0, Math.PI*2); ctx.fill();
+
+  ctx.strokeStyle = 'rgba(10,20,40,.65)';
+  ctx.lineWidth = Math.max(1.4, BOLA.r * 0.07);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(-BOLA.r*0.02, BOLA.r*0.22, BOLA.r*0.34, Math.PI*0.14, Math.PI*0.86);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function dibujarParticulas(){
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for(const p of particulas){
+    const a = limitar(p.vida, 0, 1);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (0.4 + a), 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function dibujarTextos(){
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for(const t of textos){
+    ctx.globalAlpha = limitar(t.vida, 0, 1);
+    ctx.font = (t.grande ? '800 26px' : '700 17px') + " 'Segoe UI', Arial, sans-serif";
+    ctx.shadowColor = t.color; ctx.shadowBlur = 14;
+    ctx.fillStyle = t.color;
+    ctx.fillText(t.txt, t.x, t.y);
+  }
+  ctx.restore();
+}
+
+function dibujarViñeta(){
+  const g = ctx.createRadialGradient(MUNDO.w/2, MUNDO.h/2, Math.min(MUNDO.w,MUNDO.h)*0.35,
+                                     MUNDO.w/2, MUNDO.h/2, Math.max(MUNDO.w,MUNDO.h)*0.75);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,.55)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, MUNDO.w, MUNDO.h);
+
+  // indicador de combo y pereza en pantalla
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  if(JUEGO.combo > 1){
+    ctx.font = "800 30px 'Segoe UI', Arial, sans-serif";
+    ctx.fillStyle = 'rgba(255,94,168,.9)';
+    ctx.shadowColor = 'rgba(255,94,168,1)'; ctx.shadowBlur = 16;
+    ctx.fillText('COMBO ×' + JUEGO.combo, 18, 16);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255,255,255,.22)';
+    ctx.fillRect(18, 54, 120, 5);
+    ctx.fillStyle = 'rgba(255,94,168,.9)';
+    ctx.fillRect(18, 54, 120 * limitar(JUEGO.comboT/COMBO_T, 0, 1), 5);
+  }
+  if(JUEGO.pereza){
+    const a = 0.55 + 0.45*Math.sin(JUEGO.tiempo*9);
+    ctx.textAlign = 'center';
+    ctx.font = "800 24px 'Segoe UI', Arial, sans-serif";
+    ctx.fillStyle = 'rgba(255,90,120,' + a + ')';
+    ctx.shadowColor = 'rgba(255,60,100,1)'; ctx.shadowBlur = 18;
+    ctx.fillText('¡PEREZA! DEJA DE HACER NADA', MUNDO.w/2, MUNDO.h - 46);
+  }
+}
+
+function dibujarDestello(){
+  if(JUEGO.destello <= 0) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = 'rgba(' + JUEGO.destelloColor + ',' + (JUEGO.destello * 0.45) + ')';
+  ctx.fillRect(0, 0, MUNDO.w, MUNDO.h);
+  ctx.restore();
+}
+
+function dibujar(){
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, MUNDO.w, MUNDO.h);
+
+  const s = JUEGO.sacudida;
+  if(s > 0) ctx.translate(aleatorio(-s, s), aleatorio(-s, s));
+
+  dibujarFondo();
+  dibujarArena();
+  dibujarAnillos();
+  dibujarPuntas();
+  dibujarMinas();
+  dibujarJefe();
+  dibujarEstrella();
+  if(JUEGO.estado !== 'fin') dibujarBola();
+  dibujarOndas();
+  dibujarParticulas();
+  dibujarTextos();
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  dibujarViñeta();
+  dibujarDestello();
+}
+
+/* --------------------------------------------------------------- HUD */
+function actualizarHUD(){
+  uiPuntos.textContent    = Math.max(0, Math.floor(JUEGO.puntos));
+  uiNivel.textContent     = JUEGO.nivel;
+  uiCombo.textContent     = '×' + JUEGO.combo;
+  uiMult.textContent      = '×' + multiplicador();
+  uiMejor.textContent     = JUEGO.mejor;
+  uiVelocidad.textContent = Math.round(velocidadActual());
+  uiEscudo.textContent    = BOLA.escudo ? 'ACTIVO' : '—';
+  uiEscudo.style.color    = BOLA.escudo ? '#5ef2ff' : '';
+
+  const listo = JUEGO.carga >= CARGA_PULSO;
+  uiCarga.textContent = listo ? 'LISTO' : Math.round(JUEGO.carga*100) + '%';
+  uiCarga.style.color = listo ? '#ffd166' : '';
+  barraCarga.style.width = (JUEGO.carga*100).toFixed(0) + '%';
+  barraCarga.style.background = listo
+    ? 'linear-gradient(90deg,#ffd166,#ff9f43)'
+    : 'linear-gradient(90deg,var(--acento),var(--acento2))';
+
+  barraNivel.style.width = (((JUEGO.puntos % PUNTOS_NIVEL) / PUNTOS_NIVEL) * 100).toFixed(1) + '%';
+  barraCombo.style.width = limitar(JUEGO.comboT/COMBO_T, 0, 1) * 100 + '%';
+  barraTam.style.width   = ((BOLA.r - R_MIN) / (R_MAX - R_MIN) * 100).toFixed(1) + '%';
+
+  btnDash.classList.toggle('apagado', JUEGO.dashCD > 0);
+  btnDash.classList.toggle('lista',  JUEGO.dashCD <= 0);
+  btnPulso.classList.toggle('apagado', !listo);
+  btnPulso.classList.toggle('listaOro', listo);
+}
+
+/* --------------------------------------------------------------- BUCLE PRINCIPAL */
+let ultimoTiempo = performance.now();
+function bucle(ahora){
+  const dt = Math.min(0.05, (ahora - ultimoTiempo) / 1000);  // dt con clamp (0.05s) tras perder la pestaña
+  ultimoTiempo = ahora;
+
+  if(JUEGO.estado === 'jugando') actualizar(dt);
+  else if(JUEGO.estado !== 'pausa') actualizar(dt * 0.6, true); // menús y fin: solo efectos
+
+  dibujar();
+  actualizarHUD();
+  requestAnimationFrame(bucle);
+}
+
+/* --------------------------------------------------------------- CONTROLES */
+window.addEventListener('keydown', (e) => {
+  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+  Sonido.iniciar();
+  ENTRADA.teclas.add(e.code);
+  if(e.repeat) return;
+
+  if(e.code === 'KeyM'){
+    Sonido.alternar();
+    document.getElementById('btnSonido').textContent = Sonido.silenciado ? '🔇' : '🔊';
+    return;
+  }
+  if(e.code === 'KeyP' || e.code === 'Escape'){ alternarPausa(); return; }
+
+  const confirmar = (e.code === 'Enter' || e.code === 'Space');
+  if(JUEGO.estado === 'inicio' && confirmar){ iniciar(); return; }
+  if(JUEGO.estado === 'fin'    && (confirmar || e.code === 'KeyR')){ iniciar(); return; }
+  if(JUEGO.estado === 'pausa'  && confirmar){ alternarPausa(); return; }
+
+  if(JUEGO.estado === 'jugando'){
+    if(e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp'){ if(e.code === 'Space') crecer(); }
+    if(e.code === 'KeyE') dash();
+    if(e.code === 'KeyR') pulso();
+  }
+});
+window.addEventListener('keyup', (e) => ENTRADA.teclas.delete(e.code));
+window.addEventListener('blur', () => ENTRADA.teclas.clear());
+
+/* Puntero: ratón = imanta, táctil = arrastrar para dirigir + toque para crecer */
+function aCoordenadas(e){
+  const r = lienzo.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * (MUNDO.w / r.width), y: (e.clientY - r.top) * (MUNDO.h / r.height) };
+}
+lienzo.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  Sonido.iniciar();
+  const p = aCoordenadas(e);
+  if(JUEGO.estado !== 'jugando'){ iniciar(); return; }
+
+  if(e.pointerType === 'mouse'){
+    PUNTERO.activo = true; PUNTERO.x = p.x; PUNTERO.y = p.y;
+    if(e.button === 2){ JUEGO.frenoTecla = true; return; }        // botón derecho = freno
+    const ahora = performance.now();
+    if(ahora - PUNTERO.ultimoClick < 300){ PUNTERO.ultimoClick = 0; dash(); return; } // doble clic = dash
+    PUNTERO.ultimoClick = ahora;
+    crecer();
+  }else{
+    PUNTERO.activo = true; PUNTERO.movido = false; PUNTERO.id = e.pointerId;
+    PUNTERO.x0 = p.x; PUNTERO.y0 = p.y; PUNTERO.x = p.x; PUNTERO.y = p.y; PUNTERO.t0 = performance.now();
+  }
+});
+lienzo.addEventListener('pointermove', (e) => {
+  if(e.pointerType === 'mouse'){
+    const p = aCoordenadas(e);
+    PUNTERO.x = p.x; PUNTERO.y = p.y; PUNTERO.activo = true;
+  }else if(PUNTERO.activo && e.pointerId === PUNTERO.id){
+    const p = aCoordenadas(e);
+    if(distancia(p.x, p.y, PUNTERO.x0, PUNTERO.y0) > 20) PUNTERO.movido = true;
+    PUNTERO.x = p.x; PUNTERO.y = p.y;
+  }
+});
+function soltarPuntero(e){
+  if(e.pointerType === 'mouse'){ if(e.button === 2) JUEGO.frenoTecla = false; return; }
+  if(e.pointerId !== PUNTERO.id) return;
+  if(!PUNTERO.movido && performance.now() - PUNTERO.t0 < 420) crecer();
+  PUNTERO.activo = false; PUNTERO.movido = false; PUNTERO.id = -1;
+}
+lienzo.addEventListener('pointerup', soltarPuntero);
+lienzo.addEventListener('pointercancel', soltarPuntero);
+lienzo.addEventListener('pointerleave', (e) => { if(e.pointerType === 'mouse') PUNTERO.activo = false; });
+lienzo.addEventListener('contextmenu', (e) => e.preventDefault());
+lienzo.addEventListener('dblclick', (e) => e.preventDefault());
+
+/* Botones de interfaz */
+document.getElementById('btnJugar').addEventListener('click', iniciar);
+document.getElementById('btnReintentar').addEventListener('click', iniciar);
+document.getElementById('btnContinuar').addEventListener('click', alternarPausa);
+document.getElementById('btnPausa').addEventListener('click', alternarPausa);
+btnDash.addEventListener('click', () => { Sonido.iniciar(); dash(); });
+btnPulso.addEventListener('click', () => { Sonido.iniciar(); pulso(); });
+document.getElementById('btnSonido').addEventListener('click', () => {
+  Sonido.iniciar();
+  Sonido.alternar();
+  document.getElementById('btnSonido').textContent = Sonido.silenciado ? '🔇' : '🔊';
+});
+
+/* Pausa automática al perder el foco */
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden && JUEGO.estado === 'jugando') alternarPausa();
+});
+
+/* --------------------------------------------------------------- ARRANQUE */
+cargarMejor();
+ajustarCanvas();
+reiniciar();
+mostrarPanel(panelInicio);
+requestAnimationFrame(bucle);
+</script>
+</body>
+</html>
